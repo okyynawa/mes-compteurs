@@ -24,7 +24,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Mes Compteurs</h1><div class="muted">Électricité & gaz — données conservées sur cet appareil</div>
+  <h1>Mes Compteurs</h1><div class="muted">Électricité, gaz & eau — données conservées sur cet appareil</div>
 
   <div class="card">
     <h2>Nouveau relevé</h2>
@@ -34,12 +34,14 @@
     <div class="row">
       <div><label>Électricité (kWh)</label><input id="elec" type="number" inputmode="decimal" step="0.001" /></div>
       <div><label>Gaz (m³)</label><input id="gas" type="number" inputmode="decimal" step="0.001" /></div>
+      <div><label>Eau (m³)</label><input id="water" type="number" inputmode="decimal" step="0.001" /></div>
     </div>
 
     <div class="sectionTitle">Prix au jour du relevé</div>
     <div class="row">
       <div><label>Électricité (€/kWh)</label><input id="elecPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,32" /></div>
       <div><label>Gaz (€/m³)</label><input id="gasPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,95" /></div>
+      <div><label>Eau (€/m³)</label><input id="waterPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 5,50" /></div>
     </div>
     <div class="muted" style="margin-top:8px">Ces prix servent à estimer le coût de la consommation depuis le relevé précédent.</div>
     <div class="actions"><button id="saveBtn">Enregistrer</button></div>
@@ -50,10 +52,13 @@
     <div class="stats">
       <div class="stat"><div class="muted">Dernière conso électricité</div><div id="sElec" class="big">—</div></div>
       <div class="stat"><div class="muted">Dernière conso gaz</div><div id="sGas" class="big">—</div></div>
+      <div class="stat"><div class="muted">Dernière conso eau</div><div id="sWater" class="big">—</div></div>
       <div class="stat"><div class="muted">Moyenne élec./jour</div><div id="sElecDay" class="big">—</div></div>
       <div class="stat"><div class="muted">Moyenne gaz/jour</div><div id="sGasDay" class="big">—</div></div>
+      <div class="stat"><div class="muted">Moyenne eau/jour</div><div id="sWaterDay" class="big">—</div></div>
       <div class="stat"><div class="muted">Coût électricité estimé</div><div id="sElecCost" class="big">—</div></div>
       <div class="stat"><div class="muted">Coût gaz estimé</div><div id="sGasCost" class="big">—</div></div>
+      <div class="stat"><div class="muted">Coût eau estimé</div><div id="sWaterCost" class="big">—</div></div>
       <div class="stat"><div class="muted">Coût total estimé</div><div id="sTotalCost" class="big">—</div></div>
       <div class="stat"><div class="muted">Période</div><div id="sPeriod" class="big">—</div></div>
     </div>
@@ -67,7 +72,7 @@
 
   <div class="card">
     <h2>Historique</h2>
-    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>€/kWh</th><th>€/m³</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau</th><th>Élec. €/kWh</th><th>Gaz €/m³</th><th>Eau €/m³</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
     <div class="actions">
       <button class="secondary" id="exportBtn">Exporter CSV</button>
       <label for="importFile" class="secondary" style="padding:12px 14px;border-radius:12px;font-weight:700;cursor:pointer">Importer CSV</label>
@@ -88,16 +93,16 @@ function num(v){
 }
 function save(){localStorage.setItem(KEY,JSON.stringify(data));render();}
 function add(){
-  const d=$('date').value,e=num($('elec').value),g=num($('gas').value),ep=num($('elecPrice').value),gp=num($('gasPrice').value);
-  if(!d||e===null||g===null){alert('Complète la date, l’électricité et le gaz.');return;}
-  if(ep===null||gp===null){alert('Complète aussi le prix de l’électricité et du gaz au jour du relevé.');return;}
+  const d=$('date').value,e=num($('elec').value),g=num($('gas').value),w=num($('water').value),ep=num($('elecPrice').value),gp=num($('gasPrice').value),wp=num($('waterPrice').value);
+  if(!d||e===null||g===null||w===null){alert('Complète la date, l’électricité, le gaz et l’eau.');return;}
+  if(ep===null||gp===null||wp===null){alert('Complète aussi le prix de l’électricité, du gaz et de l’eau au jour du relevé.');return;}
   const existing=data.findIndex(r=>r.date===d);
-  const row={date:d,elec:e,gas:g,elecPrice:ep,gasPrice:gp};
+  const row={date:d,elec:e,gas:g,water:w,elecPrice:ep,gasPrice:gp,waterPrice:wp};
   if(existing>=0){if(!confirm('Un relevé existe déjà à cette date. Le remplacer ?'))return;data[existing]=row;}else data.push(row);
   data.sort((a,b)=>a.date.localeCompare(b.date));
-  $('elec').value='';$('gas').value='';
+  $('elec').value='';$('gas').value='';$('water').value='';
   // Garder les derniers prix pour faciliter le relevé suivant
-  $('elecPrice').value=ep;$('gasPrice').value=gp;
+  $('elecPrice').value=ep;$('gasPrice').value=gp;$('waterPrice').value=wp;
   save();
 }
 function fmt(n,unit,max=2){return Number.isFinite(n)?n.toLocaleString('fr-BE',{maximumFractionDigits:max})+' '+unit:'—'}
@@ -108,26 +113,27 @@ function render(){
   $('tbody').innerHTML='';
   [...data].reverse().forEach((r,revIndex)=>{
     const i=data.length-1-revIndex,tr=document.createElement('tr');
-    tr.innerHTML=`<td>${new Date(r.date+'T00:00').toLocaleDateString('fr-BE')}</td><td>${r.elec}</td><td>${r.gas}</td><td>${price(num(r.elecPrice),'€')}</td><td>${price(num(r.gasPrice),'€')}</td><td><button class="secondary" data-i="${i}">Suppr.</button></td>`;
+    tr.innerHTML=`<td>${new Date(r.date+'T00:00').toLocaleDateString('fr-BE')}</td><td>${r.elec}</td><td>${r.gas}</td><td>${r.water??'—'}</td><td>${price(num(r.elecPrice),'€')}</td><td>${price(num(r.gasPrice),'€')}</td><td>${price(num(r.waterPrice),'€')}</td><td><button class="secondary" data-i="${i}">Suppr.</button></td>`;
     $('tbody').appendChild(tr)
   });
   document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{if(confirm('Supprimer ce relevé ?')){data.splice(+b.dataset.i,1);save()}});
 
-  const ids=['sElec','sGas','sElecDay','sGasDay','sElecCost','sGasCost','sTotalCost','sPeriod'];
+  const ids=['sElec','sGas','sWater','sElecDay','sGasDay','sWaterDay','sElecCost','sGasCost','sWaterCost','sTotalCost','sPeriod'];
   ids.forEach(id=>$(id).textContent='—');
   if(data.length>=2){
     const a=data[data.length-2],b=data[data.length-1];
     const days=Math.max(1,(new Date(b.date+'T00:00')-new Date(a.date+'T00:00'))/86400000);
-    const de=b.elec-a.elec,dg=b.gas-a.gas,ep=num(b.elecPrice),gp=num(b.gasPrice);
-    const ce=Number.isFinite(de)&&ep!==null?de*ep:NaN,cg=Number.isFinite(dg)&&gp!==null?dg*gp:NaN;
-    $('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');
-    $('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');
-    $('sElecCost').textContent=money(ce);$('sGasCost').textContent=money(cg);$('sTotalCost').textContent=money(ce+cg);$('sPeriod').textContent=Math.round(days)+' j';
+    const de=b.elec-a.elec,dg=b.gas-a.gas,dw=(num(b.water)!==null&&num(a.water)!==null)?b.water-a.water:NaN,ep=num(b.elecPrice),gp=num(b.gasPrice),wp=num(b.waterPrice);
+    const ce=Number.isFinite(de)&&ep!==null?de*ep:NaN,cg=Number.isFinite(dg)&&gp!==null?dg*gp:NaN,cw=Number.isFinite(dw)&&wp!==null?dw*wp:NaN;
+    $('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');$('sWater').textContent=fmt(dw,'m³');
+    $('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');$('sWaterDay').textContent=fmt(dw/days,'m³/j',3);
+    $('sElecCost').textContent=money(ce);$('sGasCost').textContent=money(cg);$('sWaterCost').textContent=money(cw);$('sTotalCost').textContent=money(ce+cg+(Number.isFinite(cw)?cw:0));$('sPeriod').textContent=Math.round(days)+' j';
   }
   if(data.length){
     const last=data[data.length-1];
     if($('elecPrice').value==='')$('elecPrice').value=num(last.elecPrice)??'';
     if($('gasPrice').value==='')$('gasPrice').value=num(last.gasPrice)??'';
+    if($('waterPrice').value==='')$('waterPrice').value=num(last.waterPrice)??'';
   }
   drawChart();
 }
@@ -142,13 +148,17 @@ function drawChart(){
 }
 
 function exportCSV(){
-  let csv='date;electricite_kWh;gaz_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.elecPrice??''};${r.gasPrice??''}`).join('\n');
+  let csv='date;electricite_kWh;gaz_m3;eau_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''}`).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mes_compteurs.csv';a.click();URL.revokeObjectURL(url)
 }
 function importCSV(file){
   const rd=new FileReader();rd.onload=()=>{
     const lines=String(rd.result).trim().split(/\r?\n/);if(!lines.length)return;
-    const next=[];for(const line of lines.slice(1)){const [date,elec,gas,elecPrice,gasPrice]=line.split(';');if(date&&num(elec)!==null&&num(gas)!==null)next.push({date,elec:num(elec),gas:num(gas),elecPrice:num(elecPrice),gasPrice:num(gasPrice)});}
+    const next=[];for(const line of lines.slice(1)){const cols=line.split(';');
+      let date,elec,gas,water,elecPrice,gasPrice,waterPrice;
+      if(cols.length>=7){[date,elec,gas,water,elecPrice,gasPrice,waterPrice]=cols;}
+      else{[date,elec,gas,elecPrice,gasPrice]=cols;water='';waterPrice='';}
+      if(date&&num(elec)!==null&&num(gas)!==null)next.push({date,elec:num(elec),gas:num(gas),water:num(water),elecPrice:num(elecPrice),gasPrice:num(gasPrice),waterPrice:num(waterPrice)});}
     if(next.length){data=next.sort((a,b)=>a.date.localeCompare(b.date));save();}else alert('Aucune donnée valide trouvée.');
   };rd.readAsText(file)
 }
