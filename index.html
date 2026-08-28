@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Mes Compteurs</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#f4f4f7}
+    body{margin:0;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom);}
+    .wrap{max-width:760px;margin:auto;padding:12px 0 32px}.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #00000012}
+    h1{font-size:28px;margin:8px 0 2px}h2{font-size:19px;margin:0 0 12px}.muted{color:#666;font-size:13px}
+    label{display:block;font-weight:600;margin-top:10px;margin-bottom:6px}input{width:100%;box-sizing:border-box;border:1px solid #d4d4d8;border-radius:12px;padding:12px;font-size:17px;background:#fff}
+    button{border:0;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;background:#111;color:#fff}.secondary{background:#e9e9ee;color:#111}.danger{background:#b42318}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #ececf0}th{font-size:12px;color:#666}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#f7f7fa;border-radius:12px;padding:12px}.big{font-size:22px;font-weight:800}
+    canvas{width:100%;height:220px;background:#fafafa;border-radius:12px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mes Compteurs</h1><div class="muted">Électricité & gaz — données conservées sur cet appareil</div>
+
+  <div class="card">
+    <h2>Nouveau relevé</h2>
+    <label>Date</label><input id="date" type="date" />
+    <div class="row">
+      <div><label>Électricité (kWh)</label><input id="elec" type="number" inputmode="decimal" step="0.001" /></div>
+      <div><label>Gaz (m³)</label><input id="gas" type="number" inputmode="decimal" step="0.001" /></div>
+    </div>
+    <div class="actions"><button id="saveBtn">Enregistrer</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Statistiques</h2>
+    <div class="stats">
+      <div class="stat"><div class="muted">Dernière conso électricité</div><div id="sElec" class="big">—</div></div>
+      <div class="stat"><div class="muted">Dernière conso gaz</div><div id="sGas" class="big">—</div></div>
+      <div class="stat"><div class="muted">Moyenne élec./jour</div><div id="sElecDay" class="big">—</div></div>
+      <div class="stat"><div class="muted">Moyenne gaz/jour</div><div id="sGasDay" class="big">—</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Évolution</h2>
+    <canvas id="chart" width="700" height="220"></canvas>
+    <div class="muted">Consommation entre chaque relevé</div>
+  </div>
+
+  <div class="card">
+    <h2>Historique</h2>
+    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <div class="actions">
+      <button class="secondary" id="exportBtn">Exporter CSV</button>
+      <label for="importFile" class="secondary" style="padding:12px 14px;border-radius:12px;font-weight:700;cursor:pointer">Importer CSV</label>
+      <input id="importFile" type="file" accept=".csv,text/csv" style="display:none" />
+      <button class="danger" id="clearBtn">Tout effacer</button>
+    </div>
+  </div>
+</div>
+<script>
+const KEY='mescompteurs_v1';
+const $=id=>document.getElementById(id);
+let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+$('date').value=new Date().toISOString().slice(0,10);
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render();}
+function add(){const d=$('date').value,e=parseFloat($('elec').value),g=parseFloat($('gas').value);if(!d||!Number.isFinite(e)||!Number.isFinite(g)){alert('Complète la date, l’électricité et le gaz.');return;}data.push({date:d,elec:e,gas:g});data.sort((a,b)=>a.date.localeCompare(b.date));$('elec').value='';$('gas').value='';save();}
+function fmt(n,unit){return Number.isFinite(n)?n.toLocaleString('fr-BE',{maximumFractionDigits:2})+' '+unit:'—'}
+function render(){
+  $('tbody').innerHTML='';
+  [...data].reverse().forEach((r,revIndex)=>{const i=data.length-1-revIndex;const tr=document.createElement('tr');tr.innerHTML=`<td>${new Date(r.date+'T00:00').toLocaleDateString('fr-BE')}</td><td>${r.elec}</td><td>${r.gas}</td><td><button class="secondary" data-i="${i}">Suppr.</button></td>`;$('tbody').appendChild(tr)});
+  document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{data.splice(+b.dataset.i,1);save()});
+  if(data.length>=2){const a=data[data.length-2],b=data[data.length-1],days=Math.max(1,(new Date(b.date)-new Date(a.date))/86400000),de=b.elec-a.elec,dg=b.gas-a.gas;$('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');$('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');}else{$('sElec').textContent=$('sGas').textContent=$('sElecDay').textContent=$('sGasDay').textContent='—';}
+  drawChart();
+}
+function drawChart(){const c=$('chart'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';if(data.length<2){ctx.fillText('Ajoute au moins deux relevés pour afficher un graphique.',20,30);return;}const vals=[];for(let i=1;i<data.length;i++)vals.push({label:data[i].date.slice(5),v:Math.max(0,data[i].elec-data[i-1].elec)});const max=Math.max(...vals.map(x=>x.v),1),pad=30,w=c.width-pad*2,h=c.height-pad*2;ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.lineTo(c.width-pad,c.height-pad);ctx.stroke();ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();vals.forEach((x,i)=>{const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=c.height-pad-(x.v/max)*h;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8)});ctx.stroke();}
+function exportCSV(){let csv='date;electricite_kWh;gaz_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas}`).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mes_compteurs.csv';a.click();URL.revokeObjectURL(url)}
+function importCSV(file){const rd=new FileReader();rd.onload=()=>{const lines=String(rd.result).trim().split(/\r?\n/).slice(1);const next=[];for(const line of lines){const [date,elec,gas]=line.split(';');if(date&&Number.isFinite(+elec)&&Number.isFinite(+gas))next.push({date,elec:+elec,gas:+gas});}if(next.length){data=next.sort((a,b)=>a.date.localeCompare(b.date));save();}else alert('Aucune donnée valide trouvée.');};rd.readAsText(file)}
+$('saveBtn').onclick=add;$('exportBtn').onclick=exportCSV;$('clearBtn').onclick=()=>{if(confirm('Effacer tous les relevés ?')){data=[];save()}};$('importFile').onchange=e=>e.target.files[0]&&importCSV(e.target.files[0]);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');render();
+</script>
+</body></html>
