@@ -9,15 +9,17 @@
   <title>Mes Compteurs</title>
   <style>
     :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#f4f4f7}
-    body{margin:0;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom);}
+    body{margin:0;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom)}
     .wrap{max-width:760px;margin:auto;padding:12px 0 32px}.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #00000012}
     h1{font-size:28px;margin:8px 0 2px}h2{font-size:19px;margin:0 0 12px}.muted{color:#666;font-size:13px}
     label{display:block;font-weight:600;margin-top:10px;margin-bottom:6px}input{width:100%;box-sizing:border-box;border:1px solid #d4d4d8;border-radius:12px;padding:12px;font-size:17px;background:#fff}
     button{border:0;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;background:#111;color:#fff}.secondary{background:#e9e9ee;color:#111}.danger{background:#b42318}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #ececf0}th{font-size:12px;color:#666}
+    table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #ececf0;white-space:nowrap}th{font-size:12px;color:#666}
     .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#f7f7fa;border-radius:12px;padding:12px}.big{font-size:22px;font-weight:800}
+    .sectionTitle{margin-top:14px;font-size:14px;font-weight:700;color:#444}
     canvas{width:100%;height:220px;background:#fafafa;border-radius:12px}
+    @media(max-width:520px){.row,.stats{grid-template-columns:1fr 1fr}.big{font-size:19px}}
   </style>
 </head>
 <body>
@@ -27,10 +29,19 @@
   <div class="card">
     <h2>Nouveau relevé</h2>
     <label>Date</label><input id="date" type="date" />
+
+    <div class="sectionTitle">Index des compteurs</div>
     <div class="row">
       <div><label>Électricité (kWh)</label><input id="elec" type="number" inputmode="decimal" step="0.001" /></div>
       <div><label>Gaz (m³)</label><input id="gas" type="number" inputmode="decimal" step="0.001" /></div>
     </div>
+
+    <div class="sectionTitle">Prix au jour du relevé</div>
+    <div class="row">
+      <div><label>Électricité (€/kWh)</label><input id="elecPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,32" /></div>
+      <div><label>Gaz (€/m³)</label><input id="gasPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,95" /></div>
+    </div>
+    <div class="muted" style="margin-top:8px">Ces prix servent à estimer le coût de la consommation depuis le relevé précédent.</div>
     <div class="actions"><button id="saveBtn">Enregistrer</button></div>
   </div>
 
@@ -41,18 +52,22 @@
       <div class="stat"><div class="muted">Dernière conso gaz</div><div id="sGas" class="big">—</div></div>
       <div class="stat"><div class="muted">Moyenne élec./jour</div><div id="sElecDay" class="big">—</div></div>
       <div class="stat"><div class="muted">Moyenne gaz/jour</div><div id="sGasDay" class="big">—</div></div>
+      <div class="stat"><div class="muted">Coût électricité estimé</div><div id="sElecCost" class="big">—</div></div>
+      <div class="stat"><div class="muted">Coût gaz estimé</div><div id="sGasCost" class="big">—</div></div>
+      <div class="stat"><div class="muted">Coût total estimé</div><div id="sTotalCost" class="big">—</div></div>
+      <div class="stat"><div class="muted">Période</div><div id="sPeriod" class="big">—</div></div>
     </div>
   </div>
 
   <div class="card">
     <h2>Évolution</h2>
     <canvas id="chart" width="700" height="220"></canvas>
-    <div class="muted">Consommation entre chaque relevé</div>
+    <div class="muted">Consommation électrique entre chaque relevé</div>
   </div>
 
   <div class="card">
     <h2>Historique</h2>
-    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>€/kWh</th><th>€/m³</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
     <div class="actions">
       <button class="secondary" id="exportBtn">Exporter CSV</button>
       <label for="importFile" class="secondary" style="padding:12px 14px;border-radius:12px;font-weight:700;cursor:pointer">Importer CSV</label>
@@ -66,19 +81,77 @@ const KEY='mescompteurs_v1';
 const $=id=>document.getElementById(id);
 let data=JSON.parse(localStorage.getItem(KEY)||'[]');
 $('date').value=new Date().toISOString().slice(0,10);
+
+function num(v){
+  if(typeof v==='string')v=v.replace(',','.');
+  const n=parseFloat(v);return Number.isFinite(n)?n:null;
+}
 function save(){localStorage.setItem(KEY,JSON.stringify(data));render();}
-function add(){const d=$('date').value,e=parseFloat($('elec').value),g=parseFloat($('gas').value);if(!d||!Number.isFinite(e)||!Number.isFinite(g)){alert('Complète la date, l’électricité et le gaz.');return;}data.push({date:d,elec:e,gas:g});data.sort((a,b)=>a.date.localeCompare(b.date));$('elec').value='';$('gas').value='';save();}
-function fmt(n,unit){return Number.isFinite(n)?n.toLocaleString('fr-BE',{maximumFractionDigits:2})+' '+unit:'—'}
+function add(){
+  const d=$('date').value,e=num($('elec').value),g=num($('gas').value),ep=num($('elecPrice').value),gp=num($('gasPrice').value);
+  if(!d||e===null||g===null){alert('Complète la date, l’électricité et le gaz.');return;}
+  if(ep===null||gp===null){alert('Complète aussi le prix de l’électricité et du gaz au jour du relevé.');return;}
+  const existing=data.findIndex(r=>r.date===d);
+  const row={date:d,elec:e,gas:g,elecPrice:ep,gasPrice:gp};
+  if(existing>=0){if(!confirm('Un relevé existe déjà à cette date. Le remplacer ?'))return;data[existing]=row;}else data.push(row);
+  data.sort((a,b)=>a.date.localeCompare(b.date));
+  $('elec').value='';$('gas').value='';
+  // Garder les derniers prix pour faciliter le relevé suivant
+  $('elecPrice').value=ep;$('gasPrice').value=gp;
+  save();
+}
+function fmt(n,unit,max=2){return Number.isFinite(n)?n.toLocaleString('fr-BE',{maximumFractionDigits:max})+' '+unit:'—'}
+function money(n){return Number.isFinite(n)?n.toLocaleString('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigits:2}):'—'}
+function price(n,unit){return Number.isFinite(n)?n.toLocaleString('fr-BE',{minimumFractionDigits:2,maximumFractionDigits:4})+' '+unit:'—'}
+
 function render(){
   $('tbody').innerHTML='';
-  [...data].reverse().forEach((r,revIndex)=>{const i=data.length-1-revIndex;const tr=document.createElement('tr');tr.innerHTML=`<td>${new Date(r.date+'T00:00').toLocaleDateString('fr-BE')}</td><td>${r.elec}</td><td>${r.gas}</td><td><button class="secondary" data-i="${i}">Suppr.</button></td>`;$('tbody').appendChild(tr)});
-  document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{data.splice(+b.dataset.i,1);save()});
-  if(data.length>=2){const a=data[data.length-2],b=data[data.length-1],days=Math.max(1,(new Date(b.date)-new Date(a.date))/86400000),de=b.elec-a.elec,dg=b.gas-a.gas;$('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');$('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');}else{$('sElec').textContent=$('sGas').textContent=$('sElecDay').textContent=$('sGasDay').textContent='—';}
+  [...data].reverse().forEach((r,revIndex)=>{
+    const i=data.length-1-revIndex,tr=document.createElement('tr');
+    tr.innerHTML=`<td>${new Date(r.date+'T00:00').toLocaleDateString('fr-BE')}</td><td>${r.elec}</td><td>${r.gas}</td><td>${price(num(r.elecPrice),'€')}</td><td>${price(num(r.gasPrice),'€')}</td><td><button class="secondary" data-i="${i}">Suppr.</button></td>`;
+    $('tbody').appendChild(tr)
+  });
+  document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{if(confirm('Supprimer ce relevé ?')){data.splice(+b.dataset.i,1);save()}});
+
+  const ids=['sElec','sGas','sElecDay','sGasDay','sElecCost','sGasCost','sTotalCost','sPeriod'];
+  ids.forEach(id=>$(id).textContent='—');
+  if(data.length>=2){
+    const a=data[data.length-2],b=data[data.length-1];
+    const days=Math.max(1,(new Date(b.date+'T00:00')-new Date(a.date+'T00:00'))/86400000);
+    const de=b.elec-a.elec,dg=b.gas-a.gas,ep=num(b.elecPrice),gp=num(b.gasPrice);
+    const ce=Number.isFinite(de)&&ep!==null?de*ep:NaN,cg=Number.isFinite(dg)&&gp!==null?dg*gp:NaN;
+    $('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');
+    $('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');
+    $('sElecCost').textContent=money(ce);$('sGasCost').textContent=money(cg);$('sTotalCost').textContent=money(ce+cg);$('sPeriod').textContent=Math.round(days)+' j';
+  }
+  if(data.length){
+    const last=data[data.length-1];
+    if($('elecPrice').value==='')$('elecPrice').value=num(last.elecPrice)??'';
+    if($('gasPrice').value==='')$('gasPrice').value=num(last.gasPrice)??'';
+  }
   drawChart();
 }
-function drawChart(){const c=$('chart'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';if(data.length<2){ctx.fillText('Ajoute au moins deux relevés pour afficher un graphique.',20,30);return;}const vals=[];for(let i=1;i<data.length;i++)vals.push({label:data[i].date.slice(5),v:Math.max(0,data[i].elec-data[i-1].elec)});const max=Math.max(...vals.map(x=>x.v),1),pad=30,w=c.width-pad*2,h=c.height-pad*2;ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.lineTo(c.width-pad,c.height-pad);ctx.stroke();ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();vals.forEach((x,i)=>{const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=c.height-pad-(x.v/max)*h;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8)});ctx.stroke();}
-function exportCSV(){let csv='date;electricite_kWh;gaz_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas}`).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mes_compteurs.csv';a.click();URL.revokeObjectURL(url)}
-function importCSV(file){const rd=new FileReader();rd.onload=()=>{const lines=String(rd.result).trim().split(/\r?\n/).slice(1);const next=[];for(const line of lines){const [date,elec,gas]=line.split(';');if(date&&Number.isFinite(+elec)&&Number.isFinite(+gas))next.push({date,elec:+elec,gas:+gas});}if(next.length){data=next.sort((a,b)=>a.date.localeCompare(b.date));save();}else alert('Aucune donnée valide trouvée.');};rd.readAsText(file)}
+
+function drawChart(){
+  const c=$('chart'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';
+  if(data.length<2){ctx.fillText('Ajoute au moins deux relevés pour afficher un graphique.',20,30);return;}
+  const vals=[];for(let i=1;i<data.length;i++)vals.push({label:data[i].date.slice(5),v:Math.max(0,data[i].elec-data[i-1].elec)});
+  const max=Math.max(...vals.map(x=>x.v),1),pad=30,w=c.width-pad*2,h=c.height-pad*2;
+  ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.lineTo(c.width-pad,c.height-pad);ctx.stroke();
+  ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();vals.forEach((x,i)=>{const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=c.height-pad-(x.v/max)*h;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8)});ctx.stroke();
+}
+
+function exportCSV(){
+  let csv='date;electricite_kWh;gaz_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.elecPrice??''};${r.gasPrice??''}`).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mes_compteurs.csv';a.click();URL.revokeObjectURL(url)
+}
+function importCSV(file){
+  const rd=new FileReader();rd.onload=()=>{
+    const lines=String(rd.result).trim().split(/\r?\n/);if(!lines.length)return;
+    const next=[];for(const line of lines.slice(1)){const [date,elec,gas,elecPrice,gasPrice]=line.split(';');if(date&&num(elec)!==null&&num(gas)!==null)next.push({date,elec:num(elec),gas:num(gas),elecPrice:num(elecPrice),gasPrice:num(gasPrice)});}
+    if(next.length){data=next.sort((a,b)=>a.date.localeCompare(b.date));save();}else alert('Aucune donnée valide trouvée.');
+  };rd.readAsText(file)
+}
 $('saveBtn').onclick=add;$('exportBtn').onclick=exportCSV;$('clearBtn').onclick=()=>{if(confirm('Effacer tous les relevés ?')){data=[];save()}};$('importFile').onchange=e=>e.target.files[0]&&importCSV(e.target.files[0]);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');render();
 </script>
