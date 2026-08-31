@@ -65,9 +65,27 @@
   </div>
 
   <div class="card">
-    <h2>Évolution</h2>
-    <canvas id="chart" width="700" height="220"></canvas>
-    <div class="muted">Variation nette de l’index électrique entre chaque relevé. Une valeur négative est possible si la production solaire dépasse le prélèvement.</div>
+    <h2>Électricité</h2>
+    <canvas id="chartElec" width="700" height="220"></canvas>
+    <div class="muted">Consommation nette entre deux relevés. Une valeur négative est possible si la production solaire dépasse le prélèvement.</div>
+  </div>
+
+  <div class="card">
+    <h2>Gaz</h2>
+    <canvas id="chartGas" width="700" height="220"></canvas>
+    <div class="muted">Consommation de gaz calculée entre deux index successifs.</div>
+  </div>
+
+  <div class="card">
+    <h2>Eau</h2>
+    <canvas id="chartWater" width="700" height="220"></canvas>
+    <div class="muted">Consommation mensuelle d’eau saisie directement lors de chaque relevé.</div>
+  </div>
+
+  <div class="card">
+    <h2>Coût mensuel estimé</h2>
+    <canvas id="chartCost" width="700" height="220"></canvas>
+    <div class="muted">Coût total estimé de l’électricité, du gaz et de l’eau pour chaque période.</div>
   </div>
 
   <div class="card">
@@ -137,21 +155,57 @@ function render(){
     if($('gasPrice').value==='')$('gasPrice').value=num(last.gasPrice)??'';
     if($('waterPrice').value==='')$('waterPrice').value=num(last.waterPrice)??'';
   }
-  drawChart();
+  drawCharts();
 }
 
-function drawChart(){
-  const c=$('chart'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';
-  if(data.length<2){ctx.fillText('Ajoute au moins deux relevés pour afficher un graphique.',20,30);return;}
-  const vals=[];for(let i=1;i<data.length;i++)vals.push({label:data[i].date.slice(5),v:data[i].elec-data[i-1].elec});
-  const min=Math.min(...vals.map(x=>x.v),0),max=Math.max(...vals.map(x=>x.v),0);
-  const range=Math.max(max-min,1),pad=30,w=c.width-pad*2,h=c.height-pad*2;
+function drawLineChart(canvasId, vals, emptyText, valueSuffix, allowNegative=false){
+  const c=$(canvasId),ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';
+  if(!vals.length){ctx.fillText(emptyText,20,30);return;}
+  const numbers=vals.map(x=>x.v).filter(Number.isFinite);
+  if(!numbers.length){ctx.fillText(emptyText,20,30);return;}
+  const min=allowNegative?Math.min(...numbers,0):0,max=Math.max(...numbers,0);
+  const range=Math.max(max-min,1),pad=34,w=c.width-pad*2,h=c.height-pad*2;
   const y=v=>pad+((max-v)/range)*h;
   ctx.strokeStyle='#ddd';ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.stroke();
-  const zeroY=y(0);ctx.beginPath();ctx.moveTo(pad,zeroY);ctx.lineTo(c.width-pad,zeroY);ctx.stroke();
+  const baseY=y(0);ctx.beginPath();ctx.moveTo(pad,baseY);ctx.lineTo(c.width-pad,baseY);ctx.stroke();
+  ctx.fillStyle='#666';ctx.fillText(max.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,pad+4);
+  if(min<0)ctx.fillText(min.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,c.height-pad);
   ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();
-  vals.forEach((x,i)=>{const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=y(x.v);if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8)});ctx.stroke();
+  vals.forEach((x,i)=>{
+    const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=y(x.v);
+    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);
+    ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8);
+  });ctx.stroke();
+}
+
+function drawCharts(){
+  if(data.length<2){
+    drawLineChart('chartElec',[],'Ajoute au moins deux relevés pour afficher le graphique.','kWh',true);
+    drawLineChart('chartGas',[],'Ajoute au moins deux relevés pour afficher le graphique.','m³');
+    drawLineChart('chartWater',[],'Ajoute des consommations d’eau pour afficher le graphique.','m³');
+    drawLineChart('chartCost',[],'Ajoute au moins deux relevés avec prix pour afficher le graphique.','€',true);
+    return;
+  }
+  const elec=[],gas=[],water=[],cost=[];
+  for(let i=1;i<data.length;i++){
+    const prev=data[i-1],cur=data[i],label=cur.date.slice(5);
+    const de=num(cur.elec)-num(prev.elec),dg=num(cur.gas)-num(prev.gas),dw=num(cur.water);
+    const ep=num(cur.elecPrice),gp=num(cur.gasPrice),wp=num(cur.waterPrice);
+    if(Number.isFinite(de))elec.push({label,v:de});
+    if(Number.isFinite(dg))gas.push({label,v:dg});
+    if(dw!==null)water.push({label,v:dw});
+    const ce=(Number.isFinite(de)&&ep!==null)?de*ep:0;
+    const cg=(Number.isFinite(dg)&&gp!==null)?dg*gp:0;
+    const cw=(dw!==null&&wp!==null)?dw*wp:0;
+    if(ep!==null||gp!==null||wp!==null)cost.push({label,v:ce+cg+cw});
+  }
+  drawLineChart('chartElec',elec,'Pas assez de données électriques.','kWh',true);
+  drawLineChart('chartGas',gas,'Pas assez de données gaz.','m³');
+  drawLineChart('chartWater',water,'Pas assez de données eau.','m³');
+  drawLineChart('chartCost',cost,'Pas assez de données de prix.','€',true);
 }
 function exportCSV(){
   let csv='date;electricite_index_kWh;gaz_index_m3;eau_conso_mois_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''}`).join('\n');
