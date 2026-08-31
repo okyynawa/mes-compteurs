@@ -3,226 +3,199 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#111111" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <title>Mes Compteurs</title>
   <style>
-    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#f4f4f7}
-    body{margin:0;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom)}
-    .wrap{max-width:760px;margin:auto;padding:12px 0 32px}.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #00000012}
-    h1{font-size:28px;margin:8px 0 2px}h2{font-size:19px;margin:0 0 12px}.muted{color:#666;font-size:13px}
-    label{display:block;font-weight:600;margin-top:10px;margin-bottom:6px}input{width:100%;box-sizing:border-box;border:1px solid #d4d4d8;border-radius:12px;padding:12px;font-size:17px;background:#fff}
-    button{border:0;border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;background:#111;color:#fff}.secondary{background:#e9e9ee;color:#111}.danger{background:#b42318}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #ececf0;white-space:nowrap}th{font-size:12px;color:#666}
-    .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#f7f7fa;border-radius:12px;padding:12px}.big{font-size:22px;font-weight:800}
-    .sectionTitle{margin-top:14px;font-size:14px;font-weight:700;color:#444}
-    canvas{width:100%;height:220px;background:#fafafa;border-radius:12px}
-    @media(max-width:520px){.row,.stats{grid-template-columns:1fr 1fr}.big{font-size:19px}}
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#f4f4f7;--card:#fff;--muted:#6b6b72;--line:#e7e7ec;--soft:#f7f7fa;--good:#147a45;--bad:#b42318;--warn:#9a6700}
+    *{box-sizing:border-box} body{margin:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);background:#f4f4f7}
+    .wrap{max-width:860px;margin:auto;padding:12px 14px 90px}.top{padding:4px 2px 6px}.top h1{font-size:29px;margin:6px 0 2px}.muted{color:var(--muted);font-size:13px}
+    .card{background:var(--card);border-radius:17px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #00000010}.card h2{font-size:19px;margin:0 0 12px}.card h3{font-size:15px;margin:14px 0 8px}
+    label{display:block;font-weight:650;margin-top:10px;margin-bottom:6px}input,select,textarea{width:100%;border:1px solid #d6d6dc;border-radius:12px;padding:12px;font-size:16px;background:#fff;color:#111}textarea{min-height:74px;resize:vertical}
+    button,.buttonLabel{border:0;border-radius:12px;padding:12px 14px;font-size:15px;font-weight:750;background:#111;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.secondary{background:#ececf1;color:#111}.danger{background:#b42318}.outline{background:#fff;color:#111;border:1px solid #d6d6dc}.small{padding:8px 10px;font-size:13px;border-radius:10px}
+    .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{background:var(--soft);border-radius:13px;padding:12px}.stat .label{color:var(--muted);font-size:12px}.big{font-size:21px;font-weight:820;margin-top:3px}.delta{font-size:12px;margin-top:4px}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+    .heroGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.hero{padding:14px;border-radius:14px;background:#111;color:#fff}.hero .label{opacity:.7;font-size:12px}.hero .value{font-size:23px;font-weight:850;margin-top:4px}
+    .notice{padding:11px 12px;border-radius:12px;background:#fff7dd;color:#6d4c00;font-size:13px;margin-top:10px}.notice.goodNotice{background:#eaf8ef;color:#135c36}.notice.badNotice{background:#fff0ef;color:#8c1d18}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar select{width:auto;min-width:110px;padding:9px 34px 9px 10px}.sectionTitle{margin-top:14px;font-size:13px;font-weight:750;color:#555;text-transform:uppercase;letter-spacing:.03em}
+    canvas{width:100%;height:230px;background:#fafafa;border-radius:12px;display:block}.chartLegend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#555;margin-top:8px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#111;margin-right:5px}.dot.alt{background:#888}
+    table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:11px;color:#666;text-transform:uppercase}.notesCell{white-space:normal;min-width:160px;max-width:260px}.tableWrap{overflow:auto}
+    .tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#ffffffee;backdrop-filter:blur(16px);border-top:1px solid #dedee3;padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));display:flex;justify-content:center}.tabsInner{width:min(860px,100%);display:grid;grid-template-columns:repeat(5,1fr);gap:4px}.tabBtn{background:transparent;color:#666;padding:8px 3px;font-size:11px;border-radius:10px;display:block;text-align:center;font-weight:700}.tabBtn.active{background:#111;color:#fff}.tabBtn span{display:block;font-size:17px;margin-bottom:2px}
+    .view{display:none}.view.active{display:block}.editBanner{display:none;background:#eaf2ff;color:#174a8b;padding:10px 12px;border-radius:12px;margin-bottom:10px;font-size:13px}.editBanner.show{display:block}
+    .miniList{display:grid;gap:7px}.miniItem{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:8px 0;font-size:13px}.miniItem:last-child{border-bottom:0}.right{text-align:right}
+    @media(max-width:650px){.row3,.heroGrid{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}.big{font-size:18px}.tabsInner{gap:2px}.tabBtn{font-size:10px}.card{padding:14px}}
+    @media(max-width:390px){.row,.stats{grid-template-columns:1fr}.tabBtn span{font-size:16px}}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Mes Compteurs</h1><div class="muted">Électricité, gaz & eau — données conservées sur cet appareil</div>
+  <div class="top"><h1>Mes Compteurs</h1><div class="muted">Électricité, gaz, eau & budget — données conservées sur cet appareil</div></div>
 
-  <div class="card">
-    <h2>Nouveau relevé</h2>
-    <label>Date</label><input id="date" type="date" />
-
-    <div class="sectionTitle">Relevés</div>
-    <div class="row">
-      <div><label>Électricité (kWh)</label><input id="elec" type="number" inputmode="decimal" step="0.001" /></div>
-      <div><label>Gaz (m³)</label><input id="gas" type="number" inputmode="decimal" step="0.001" /></div>
-      <div><label>Consommation d’eau du mois (m³)</label><input id="water" type="number" inputmode="decimal" step="0.001" placeholder="ex. 8,5" /></div>
+  <section id="view-dashboard" class="view active">
+    <div class="card">
+      <div class="toolbar"><h2 style="margin:0;flex:1">Tableau de bord</h2><select id="dashYear"></select></div>
+      <div class="heroGrid" style="margin-top:12px">
+        <div class="hero"><div class="label">Coût de l'année</div><div id="heroCost" class="value">—</div></div>
+        <div class="hero"><div class="label">Projection fin d'année</div><div id="heroProjection" class="value">—</div></div>
+        <div class="hero"><div class="label">Budget annuel</div><div id="heroBudget" class="value">—</div></div>
+      </div>
+      <div id="budgetNotice" class="notice" style="display:none"></div>
     </div>
 
-    <div class="sectionTitle">Prix au jour du relevé</div>
-    <div class="row">
-      <div><label>Électricité (€/kWh)</label><input id="elecPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,32" /></div>
-      <div><label>Gaz (€/m³)</label><input id="gasPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,95" /></div>
-      <div><label>Eau (€/m³)</label><input id="waterPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 5,50" /></div>
+    <div class="card">
+      <h2>Dernière période</h2>
+      <div class="stats">
+        <div class="stat"><div class="label">Électricité nette</div><div id="dElec" class="big">—</div><div id="dElecDelta" class="delta"></div></div>
+        <div class="stat"><div class="label">Gaz</div><div id="dGas" class="big">—</div><div id="dGasDelta" class="delta"></div></div>
+        <div class="stat"><div class="label">Eau du mois</div><div id="dWater" class="big">—</div><div id="dWaterDelta" class="delta"></div></div>
+        <div class="stat"><div class="label">Coût total</div><div id="dCost" class="big">—</div><div id="dCostDelta" class="delta"></div></div>
+      </div>
     </div>
-    <div class="muted" style="margin-top:8px">Pour l’électricité et le gaz, la consommation est calculée depuis l’index précédent. Pour l’eau, saisis directement la consommation du mois. L’index électrique peut diminuer avec les panneaux solaires.</div>
-    <div class="actions"><button id="saveBtn">Enregistrer</button></div>
-  </div>
 
-  <div class="card">
-    <h2>Statistiques</h2>
-    <div class="stats">
-      <div class="stat"><div class="muted">Dernière conso électricité</div><div id="sElec" class="big">—</div></div>
-      <div class="stat"><div class="muted">Dernière conso gaz</div><div id="sGas" class="big">—</div></div>
-      <div class="stat"><div class="muted">Eau du dernier mois</div><div id="sWater" class="big">—</div></div>
-      <div class="stat"><div class="muted">Moyenne élec./jour</div><div id="sElecDay" class="big">—</div></div>
-      <div class="stat"><div class="muted">Moyenne gaz/jour</div><div id="sGasDay" class="big">—</div></div>
-      <div class="stat"><div class="muted">Moyenne eau/mois</div><div id="sWaterDay" class="big">—</div></div>
-      <div class="stat"><div class="muted">Coût électricité estimé</div><div id="sElecCost" class="big">—</div></div>
-      <div class="stat"><div class="muted">Coût gaz estimé</div><div id="sGasCost" class="big">—</div></div>
-      <div class="stat"><div class="muted">Coût eau estimé</div><div id="sWaterCost" class="big">—</div></div>
-      <div class="stat"><div class="muted">Coût total estimé</div><div id="sTotalCost" class="big">—</div></div>
-      <div class="stat"><div class="muted">Période</div><div id="sPeriod" class="big">—</div></div>
+    <div class="card"><h2>Consommations de l'année</h2><div class="stats">
+      <div class="stat"><div class="label">Électricité nette</div><div id="yElec" class="big">—</div></div>
+      <div class="stat"><div class="label">Gaz</div><div id="yGas" class="big">—</div></div>
+      <div class="stat"><div class="label">Eau</div><div id="yWater" class="big">—</div></div>
+      <div class="stat"><div class="label">Moyenne mensuelle coût</div><div id="yAvgCost" class="big">—</div></div>
+    </div></div>
+
+    <div class="card"><h2>Repères</h2><div id="records" class="miniList"></div></div>
+  </section>
+
+  <section id="view-entry" class="view">
+    <div class="card">
+      <h2>Nouveau relevé</h2>
+      <div id="editBanner" class="editBanner">Modification d’un relevé existant. <button id="cancelEdit" class="small outline" style="margin-left:8px">Annuler</button></div>
+      <label>Date</label><input id="date" type="date" />
+      <div class="sectionTitle">Relevés</div>
+      <div class="row3">
+        <div><label>Électricité — index (kWh)</label><input id="elec" type="number" inputmode="decimal" step="0.001" /></div>
+        <div><label>Gaz — index (m³)</label><input id="gas" type="number" inputmode="decimal" step="0.001" /></div>
+        <div><label>Eau — conso du mois (m³)</label><input id="water" type="number" inputmode="decimal" step="0.001" /></div>
+      </div>
+      <div class="sectionTitle">Prix au jour du relevé</div>
+      <div class="row3">
+        <div><label>Électricité (€/kWh)</label><input id="elecPrice" type="number" inputmode="decimal" step="0.0001" /></div>
+        <div><label>Gaz (€/m³)</label><input id="gasPrice" type="number" inputmode="decimal" step="0.0001" /></div>
+        <div><label>Eau (€/m³)</label><input id="waterPrice" type="number" inputmode="decimal" step="0.0001" /></div>
+      </div>
+      <label>Note (facultatif)</label><textarea id="note" placeholder="Ex. vacances, nouvelle chaudière, panneaux installés…"></textarea>
+      <div class="muted" style="margin-top:8px">L’index électrique peut diminuer lorsque la production solaire dépasse la consommation. Pour l’eau, saisis directement la consommation du mois.</div>
+      <div class="actions"><button id="saveBtn">Enregistrer</button></div>
     </div>
-  </div>
+  </section>
 
-  <div class="card">
-    <h2>Électricité</h2>
-    <canvas id="chartElec" width="700" height="220"></canvas>
-    <div class="muted">Consommation nette entre deux relevés. Une valeur négative est possible si la production solaire dépasse le prélèvement.</div>
-  </div>
+  <section id="view-charts" class="view">
+    <div class="card"><div class="toolbar"><h2 style="margin:0;flex:1">Graphiques</h2><select id="chartYear"></select></div></div>
+    <div class="card"><h2>Électricité nette</h2><canvas id="chartElec" width="820" height="230"></canvas><div class="muted">Positif = prélèvement net. Négatif = production/injection nette supérieure.</div></div>
+    <div class="card"><h2>Gaz</h2><canvas id="chartGas" width="820" height="230"></canvas></div>
+    <div class="card"><h2>Eau</h2><canvas id="chartWater" width="820" height="230"></canvas></div>
+    <div class="card"><h2>Coût mensuel estimé</h2><canvas id="chartCost" width="820" height="230"></canvas></div>
+    <div class="card"><h2>Comparaison avec l’année précédente</h2><canvas id="chartCompare" width="820" height="230"></canvas><div class="chartLegend"><span><i class="dot"></i>Année choisie</span><span><i class="dot alt"></i>Année précédente</span></div><div class="muted">Comparaison du coût total par mois.</div></div>
+  </section>
 
-  <div class="card">
-    <h2>Gaz</h2>
-    <canvas id="chartGas" width="700" height="220"></canvas>
-    <div class="muted">Consommation de gaz calculée entre deux index successifs.</div>
-  </div>
+  <section id="view-history" class="view">
+    <div class="card">
+      <div class="toolbar"><h2 style="margin:0;flex:1">Historique</h2><select id="historyYear"><option value="all">Toutes</option></select></div>
+      <div class="tableWrap"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau</th><th>Coût</th><th>Note</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+    </div>
+    <div class="card"><h2>Historique des prix</h2><div class="tableWrap"><table><thead><tr><th>Date</th><th>Élec. €/kWh</th><th>Gaz €/m³</th><th>Eau €/m³</th></tr></thead><tbody id="priceBody"></tbody></table></div></div>
+  </section>
 
-  <div class="card">
-    <h2>Eau</h2>
-    <canvas id="chartWater" width="700" height="220"></canvas>
-    <div class="muted">Consommation mensuelle d’eau saisie directement lors de chaque relevé.</div>
-  </div>
-
-  <div class="card">
-    <h2>Coût mensuel estimé</h2>
-    <canvas id="chartCost" width="700" height="220"></canvas>
-    <div class="muted">Coût total estimé de l’électricité, du gaz et de l’eau pour chaque période.</div>
-  </div>
-
-  <div class="card">
-    <h2>Historique</h2>
-    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau (mois)</th><th>Élec. €/kWh</th><th>Gaz €/m³</th><th>Eau €/m³</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
-    <div class="actions">
+  <section id="view-settings" class="view">
+    <div class="card"><h2>Budget</h2><label>Budget annuel énergie + eau (€)</label><input id="annualBudget" type="number" inputmode="decimal" step="1" placeholder="Ex. 3000"/><div class="actions"><button id="saveBudget">Enregistrer le budget</button></div></div>
+    <div class="card"><h2>Sauvegarde & restauration</h2><div class="muted">La sauvegarde JSON conserve les relevés, prix, notes et réglages. À conserver dans iCloud Drive, OneDrive ou sur un PC.</div><div class="actions">
+      <button id="backupBtn">Sauvegarde JSON</button>
+      <label for="restoreFile" class="buttonLabel secondary">Restaurer JSON</label><input id="restoreFile" type="file" accept=".json,application/json" style="display:none" />
+    </div></div>
+    <div class="card"><h2>CSV / Excel</h2><div class="muted">Le CSV est pratique pour Excel et pour préparer l’import de l’ancien historique.</div><div class="actions">
       <button class="secondary" id="exportBtn">Exporter CSV</button>
-      <label for="importFile" class="secondary" style="padding:12px 14px;border-radius:12px;font-weight:700;cursor:pointer">Importer CSV</label>
-      <input id="importFile" type="file" accept=".csv,text/csv" style="display:none" />
-      <button class="danger" id="clearBtn">Tout effacer</button>
-    </div>
-  </div>
+      <label for="importFile" class="buttonLabel secondary">Importer CSV</label><input id="importFile" type="file" accept=".csv,text/csv" style="display:none" />
+    </div></div>
+    <div class="card"><h2>Données</h2><div id="dataInfo" class="muted"></div><div class="actions"><button class="danger" id="clearBtn">Tout effacer</button></div></div>
+  </section>
 </div>
+
+<nav class="tabs"><div class="tabsInner">
+  <button class="tabBtn active" data-view="dashboard"><span>⌂</span>Accueil</button>
+  <button class="tabBtn" data-view="entry"><span>＋</span>Relevé</button>
+  <button class="tabBtn" data-view="charts"><span>⌁</span>Graphiques</button>
+  <button class="tabBtn" data-view="history"><span>≡</span>Historique</button>
+  <button class="tabBtn" data-view="settings"><span>⚙︎</span>Réglages</button>
+</div></nav>
+
 <script>
-const KEY='mescompteurs_v1';
+const KEY='mescompteurs_v1', SETTINGS_KEY='mescompteurs_settings_v6';
 const $=id=>document.getElementById(id);
-let data=JSON.parse(localStorage.getItem(KEY)||'[]');
+let data=[]; try{data=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){data=[]}
+let settings={annualBudget:null}; try{settings={...settings,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}}catch(e){}
+let editIndex=null;
 $('date').value=new Date().toISOString().slice(0,10);
 
-function num(v){
-  if(typeof v==='string')v=v.replace(',','.');
-  const n=parseFloat(v);return Number.isFinite(n)?n:null;
-}
-function save(){localStorage.setItem(KEY,JSON.stringify(data));render();}
-function add(){
-  const d=$('date').value,e=num($('elec').value),g=num($('gas').value),w=num($('water').value),ep=num($('elecPrice').value),gp=num($('gasPrice').value),wp=num($('waterPrice').value);
-  if(!d||e===null||g===null||w===null){alert('Complète la date, l’électricité, le gaz et l’eau.');return;}
-  if(ep===null||gp===null||wp===null){alert('Complète aussi le prix de l’électricité, du gaz et de l’eau au jour du relevé.');return;}
-  const existing=data.findIndex(r=>r.date===d);
-  const row={date:d,elec:e,gas:g,water:w,elecPrice:ep,gasPrice:gp,waterPrice:wp};
-  if(existing>=0){if(!confirm('Un relevé existe déjà à cette date. Le remplacer ?'))return;data[existing]=row;}else data.push(row);
-  data.sort((a,b)=>a.date.localeCompare(b.date));
-  $('elec').value='';$('gas').value='';$('water').value='';
-  // Garder les derniers prix pour faciliter le relevé suivant
-  $('elecPrice').value=ep;$('gasPrice').value=gp;$('waterPrice').value=wp;
-  save();
-}
+function num(v){if(typeof v==='string')v=v.trim().replace(',','.');const n=parseFloat(v);return Number.isFinite(n)?n:null}
+function normalize(){data=data.filter(r=>r&&r.date).map(r=>({date:String(r.date).slice(0,10),elec:num(r.elec),gas:num(r.gas),water:num(r.water),elecPrice:num(r.elecPrice),gasPrice:num(r.gasPrice),waterPrice:num(r.waterPrice),note:r.note||''})).filter(r=>r.elec!==null&&r.gas!==null).sort((a,b)=>a.date.localeCompare(b.date));}
+normalize();
+function persist(){localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));renderAll()}
 function fmt(n,unit,max=2){return Number.isFinite(n)?n.toLocaleString('fr-BE',{maximumFractionDigits:max})+' '+unit:'—'}
 function money(n){return Number.isFinite(n)?n.toLocaleString('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigits:2}):'—'}
-function price(n,unit){return Number.isFinite(n)?n.toLocaleString('fr-BE',{minimumFractionDigits:2,maximumFractionDigits:4})+' '+unit:'—'}
+function price(n,unit='€'){return Number.isFinite(n)?n.toLocaleString('fr-BE',{minimumFractionDigits:2,maximumFractionDigits:4})+' '+unit:'—'}
+function dateFR(d){return new Date(d+'T00:00').toLocaleDateString('fr-BE')}
+function monthLabel(d){return new Date(d+'T00:00').toLocaleDateString('fr-BE',{month:'short'})}
+function daysBetween(a,b){return Math.max(1,(new Date(b+'T00:00')-new Date(a+'T00:00'))/86400000)}
+function years(){const ys=[...new Set(data.map(r=>r.date.slice(0,4)))].sort((a,b)=>b-a);if(!ys.includes(String(new Date().getFullYear())))ys.unshift(String(new Date().getFullYear()));return ys}
+function periodAt(i){if(i<=0||i>=data.length)return null;const prev=data[i-1],cur=data[i];const de=num(cur.elec)-num(prev.elec),dg=num(cur.gas)-num(prev.gas),dw=num(cur.water);const ep=num(cur.elecPrice),gp=num(cur.gasPrice),wp=num(cur.waterPrice);const ce=ep!==null?de*ep:0,cg=gp!==null?dg*gp:0,cw=(dw!==null&&wp!==null)?dw*wp:0;return {date:cur.date,year:cur.date.slice(0,4),month:cur.date.slice(0,7),days:daysBetween(prev.date,cur.date),de,dg,dw,ce,cg,cw,cost:ce+cg+cw,note:cur.note||''}}
+function periods(){const out=[];for(let i=1;i<data.length;i++){const p=periodAt(i);if(p)out.push(p)}return out}
+function yearPeriods(y){return periods().filter(p=>p.year===String(y))}
+function monthBuckets(y){const map={};yearPeriods(y).forEach(p=>{if(!map[p.month])map[p.month]={month:p.month,de:0,dg:0,dw:0,cost:0,count:0};const m=map[p.month];m.de+=p.de;m.dg+=p.dg;m.dw+=p.dw||0;m.cost+=p.cost;m.count++});return Object.values(map).sort((a,b)=>a.month.localeCompare(b.month))}
+function sum(arr,key){return arr.reduce((s,x)=>s+(Number.isFinite(x[key])?x[key]:0),0)}
+function pctChange(cur,prev){if(!Number.isFinite(prev)||prev===0)return null;return (cur-prev)/Math.abs(prev)*100}
+function deltaText(el,cur,prev,invertGood=false){const p=pctChange(cur,prev);el.className='delta';if(p===null){el.textContent='';return}const arrow=p>0?'↑':'↓';el.textContent=`${arrow} ${Math.abs(p).toLocaleString('fr-BE',{maximumFractionDigits:1})}% vs période précédente`;const good=invertGood?p<0:p>0;el.classList.add(good?'good':'bad')}
 
-function render(){
-  $('tbody').innerHTML='';
-  [...data].reverse().forEach((r,revIndex)=>{
-    const i=data.length-1-revIndex,tr=document.createElement('tr');
-    tr.innerHTML=`<td>${new Date(r.date+'T00:00').toLocaleDateString('fr-BE')}</td><td>${r.elec}</td><td>${r.gas}</td><td>${r.water??'—'}</td><td>${price(num(r.elecPrice),'€')}</td><td>${price(num(r.gasPrice),'€')}</td><td>${price(num(r.waterPrice),'€')}</td><td><button class="secondary" data-i="${i}">Suppr.</button></td>`;
-    $('tbody').appendChild(tr)
-  });
-  document.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{if(confirm('Supprimer ce relevé ?')){data.splice(+b.dataset.i,1);save()}});
+function fillYearSelects(){const ys=years();['dashYear','chartYear'].forEach(id=>{const sel=$(id),old=sel.value;sel.innerHTML=ys.map(y=>`<option value="${y}">${y}</option>`).join('');if(ys.includes(old))sel.value=old});const hs=$('historyYear'),old=hs.value;hs.innerHTML='<option value="all">Toutes</option>'+ys.map(y=>`<option value="${y}">${y}</option>`).join('');hs.value=(old==='all'||ys.includes(old))?old:'all'}
 
-  const ids=['sElec','sGas','sWater','sElecDay','sGasDay','sWaterDay','sElecCost','sGasCost','sWaterCost','sTotalCost','sPeriod'];
-  ids.forEach(id=>$(id).textContent='—');
-  if(data.length>=2){
-    const a=data[data.length-2],b=data[data.length-1];
-    const days=Math.max(1,(new Date(b.date+'T00:00')-new Date(a.date+'T00:00'))/86400000);
-    const de=b.elec-a.elec,dg=b.gas-a.gas,dw=num(b.water),ep=num(b.elecPrice),gp=num(b.gasPrice),wp=num(b.waterPrice);
-    const ce=Number.isFinite(de)&&ep!==null?de*ep:NaN,cg=Number.isFinite(dg)&&gp!==null?dg*gp:NaN,cw=Number.isFinite(dw)&&wp!==null?dw*wp:NaN;
-    $('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');$('sWater').textContent=fmt(dw,'m³');
-    $('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');
-    const waterVals=data.map(r=>num(r.water)).filter(v=>v!==null);
-    $('sWaterDay').textContent=waterVals.length?fmt(waterVals.reduce((x,y)=>x+y,0)/waterVals.length,'m³/mois'):'—';
-    $('sElecCost').textContent=money(ce);$('sGasCost').textContent=money(cg);$('sWaterCost').textContent=money(cw);$('sTotalCost').textContent=money(ce+cg+(Number.isFinite(cw)?cw:0));$('sPeriod').textContent=Math.round(days)+' j';
-  }
-  if(data.length){
-    const last=data[data.length-1];
-    if($('elecPrice').value==='')$('elecPrice').value=num(last.elecPrice)??'';
-    if($('gasPrice').value==='')$('gasPrice').value=num(last.gasPrice)??'';
-    if($('waterPrice').value==='')$('waterPrice').value=num(last.waterPrice)??'';
-  }
-  drawCharts();
+function renderDashboard(){const y=$('dashYear').value||years()[0],ps=yearPeriods(y),months=monthBuckets(y);const totalCost=sum(ps,'cost'),totalElec=sum(ps,'de'),totalGas=sum(ps,'dg'),totalWater=sum(ps,'dw');const monthsDone=months.length;const projection=monthsDone?totalCost/monthsDone*12:NaN;const budget=num(settings.annualBudget);
+  $('heroCost').textContent=money(totalCost);$('heroProjection').textContent=money(projection);$('heroBudget').textContent=budget!==null?money(budget):'Non défini';
+  const bn=$('budgetNotice');bn.style.display='none';bn.className='notice';if(budget!==null&&Number.isFinite(projection)){bn.style.display='block';const diff=projection-budget;if(diff>0){bn.classList.add('badNotice');bn.textContent=`Projection supérieure au budget d’environ ${money(diff)}.`}else{bn.classList.add('goodNotice');bn.textContent=`Projection sous le budget d’environ ${money(Math.abs(diff))}.`}}
+  $('yElec').textContent=fmt(totalElec,'kWh');$('yGas').textContent=fmt(totalGas,'m³');$('yWater').textContent=fmt(totalWater,'m³');$('yAvgCost').textContent=monthsDone?money(totalCost/monthsDone):'—';
+  const allP=periods(),last=allP[allP.length-1],prev=allP[allP.length-2];
+  if(last){$('dElec').textContent=fmt(last.de,'kWh');$('dGas').textContent=fmt(last.dg,'m³');$('dWater').textContent=fmt(last.dw,'m³');$('dCost').textContent=money(last.cost);if(prev){deltaText($('dElecDelta'),last.de,prev.de,true);deltaText($('dGasDelta'),last.dg,prev.dg,true);deltaText($('dWaterDelta'),last.dw,prev.dw,true);deltaText($('dCostDelta'),last.cost,prev.cost,true)}}else{['dElec','dGas','dWater','dCost'].forEach(id=>$(id).textContent='—');['dElecDelta','dGasDelta','dWaterDelta','dCostDelta'].forEach(id=>$(id).textContent='')}
+  const rec=$('records');if(!months.length){rec.innerHTML='<div class="muted">Pas encore assez de données pour cette année.</div>';return}const maxCost=[...months].sort((a,b)=>b.cost-a.cost)[0],maxGas=[...months].sort((a,b)=>b.dg-a.dg)[0],maxWater=[...months].sort((a,b)=>b.dw-a.dw)[0],bestElec=[...months].sort((a,b)=>a.de-b.de)[0];rec.innerHTML=`
+    <div class="miniItem"><span>Mois le plus cher</span><strong>${monthLabel(maxCost.month+'-01')} — ${money(maxCost.cost)}</strong></div>
+    <div class="miniItem"><span>Plus forte consommation gaz</span><strong>${monthLabel(maxGas.month+'-01')} — ${fmt(maxGas.dg,'m³')}</strong></div>
+    <div class="miniItem"><span>Plus forte consommation eau</span><strong>${monthLabel(maxWater.month+'-01')} — ${fmt(maxWater.dw,'m³')}</strong></div>
+    <div class="miniItem"><span>Meilleur bilan électrique</span><strong>${monthLabel(bestElec.month+'-01')} — ${fmt(bestElec.de,'kWh')}</strong></div>`;
 }
 
-function drawLineChart(canvasId, vals, emptyText, valueSuffix, allowNegative=false){
-  const c=$(canvasId),ctx=c.getContext('2d');
-  ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';
-  if(!vals.length){ctx.fillText(emptyText,20,30);return;}
-  const numbers=vals.map(x=>x.v).filter(Number.isFinite);
-  if(!numbers.length){ctx.fillText(emptyText,20,30);return;}
-  const min=allowNegative?Math.min(...numbers,0):0,max=Math.max(...numbers,0);
-  const range=Math.max(max-min,1),pad=34,w=c.width-pad*2,h=c.height-pad*2;
-  const y=v=>pad+((max-v)/range)*h;
-  ctx.strokeStyle='#ddd';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.stroke();
-  const baseY=y(0);ctx.beginPath();ctx.moveTo(pad,baseY);ctx.lineTo(c.width-pad,baseY);ctx.stroke();
-  ctx.fillStyle='#666';ctx.fillText(max.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,pad+4);
-  if(min<0)ctx.fillText(min.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,c.height-pad);
-  ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();
-  vals.forEach((x,i)=>{
-    const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=y(x.v);
-    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
-    ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);
-    ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8);
-  });ctx.stroke();
-}
+function addOrEdit(){const d=$('date').value,e=num($('elec').value),g=num($('gas').value),w=num($('water').value),ep=num($('elecPrice').value),gp=num($('gasPrice').value),wp=num($('waterPrice').value),note=$('note').value.trim();if(!d||e===null||g===null||w===null){alert('Complète la date, l’électricité, le gaz et l’eau.');return}if(ep===null||gp===null||wp===null){alert('Complète aussi les trois prix.');return}const row={date:d,elec:e,gas:g,water:w,elecPrice:ep,gasPrice:gp,waterPrice:wp,note};
+  if(editIndex!==null){const collision=data.findIndex((r,i)=>r.date===d&&i!==editIndex);if(collision>=0){alert('Un autre relevé existe déjà à cette date.');return}data[editIndex]=row;cancelEditMode()}else{const existing=data.findIndex(r=>r.date===d);if(existing>=0){if(!confirm('Un relevé existe déjà à cette date. Le remplacer ?'))return;data[existing]=row}else data.push(row)}
+  data.sort((a,b)=>a.date.localeCompare(b.date));$('elec').value='';$('gas').value='';$('water').value='';$('note').value='';$('elecPrice').value=ep;$('gasPrice').value=gp;$('waterPrice').value=wp;persist();switchView('dashboard')}
+function editRow(i){const r=data[i];if(!r)return;editIndex=i;$('date').value=r.date;$('elec').value=r.elec;$('gas').value=r.gas;$('water').value=r.water??'';$('elecPrice').value=r.elecPrice??'';$('gasPrice').value=r.gasPrice??'';$('waterPrice').value=r.waterPrice??'';$('note').value=r.note||'';$('editBanner').classList.add('show');$('saveBtn').textContent='Enregistrer les modifications';switchView('entry');window.scrollTo({top:0,behavior:'smooth'})}
+function cancelEditMode(){editIndex=null;$('editBanner').classList.remove('show');$('saveBtn').textContent='Enregistrer'}
 
-function drawCharts(){
-  if(data.length<2){
-    drawLineChart('chartElec',[],'Ajoute au moins deux relevés pour afficher le graphique.','kWh',true);
-    drawLineChart('chartGas',[],'Ajoute au moins deux relevés pour afficher le graphique.','m³');
-    drawLineChart('chartWater',[],'Ajoute des consommations d’eau pour afficher le graphique.','m³');
-    drawLineChart('chartCost',[],'Ajoute au moins deux relevés avec prix pour afficher le graphique.','€',true);
-    return;
-  }
-  const elec=[],gas=[],water=[],cost=[];
-  for(let i=1;i<data.length;i++){
-    const prev=data[i-1],cur=data[i],label=cur.date.slice(5);
-    const de=num(cur.elec)-num(prev.elec),dg=num(cur.gas)-num(prev.gas),dw=num(cur.water);
-    const ep=num(cur.elecPrice),gp=num(cur.gasPrice),wp=num(cur.waterPrice);
-    if(Number.isFinite(de))elec.push({label,v:de});
-    if(Number.isFinite(dg))gas.push({label,v:dg});
-    if(dw!==null)water.push({label,v:dw});
-    const ce=(Number.isFinite(de)&&ep!==null)?de*ep:0;
-    const cg=(Number.isFinite(dg)&&gp!==null)?dg*gp:0;
-    const cw=(dw!==null&&wp!==null)?dw*wp:0;
-    if(ep!==null||gp!==null||wp!==null)cost.push({label,v:ce+cg+cw});
-  }
-  drawLineChart('chartElec',elec,'Pas assez de données électriques.','kWh',true);
-  drawLineChart('chartGas',gas,'Pas assez de données gaz.','m³');
-  drawLineChart('chartWater',water,'Pas assez de données eau.','m³');
-  drawLineChart('chartCost',cost,'Pas assez de données de prix.','€',true);
-}
-function exportCSV(){
-  let csv='date;electricite_index_kWh;gaz_index_m3;eau_conso_mois_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''}`).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mes_compteurs.csv';a.click();URL.revokeObjectURL(url)
-}
-function importCSV(file){
-  const rd=new FileReader();rd.onload=()=>{
-    const lines=String(rd.result).trim().split(/\r?\n/);if(!lines.length)return;
-    const next=[];for(const line of lines.slice(1)){const cols=line.split(';');
-      let date,elec,gas,water,elecPrice,gasPrice,waterPrice;
-      if(cols.length>=7){[date,elec,gas,water,elecPrice,gasPrice,waterPrice]=cols;}
-      else{[date,elec,gas,elecPrice,gasPrice]=cols;water='';waterPrice='';}
-      if(date&&num(elec)!==null&&num(gas)!==null)next.push({date,elec:num(elec),gas:num(gas),water:num(water),elecPrice:num(elecPrice),gasPrice:num(gasPrice),waterPrice:num(waterPrice)});}
-    if(next.length){data=next.sort((a,b)=>a.date.localeCompare(b.date));save();}else alert('Aucune donnée valide trouvée.');
-  };rd.readAsText(file)
-}
-$('saveBtn').onclick=add;$('exportBtn').onclick=exportCSV;$('clearBtn').onclick=()=>{if(confirm('Effacer tous les relevés ?')){data=[];save()}};$('importFile').onchange=e=>e.target.files[0]&&importCSV(e.target.files[0]);
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');render();
+function renderHistory(){const filter=$('historyYear').value||'all';$('tbody').innerHTML='';[...data].map((r,i)=>({r,i})).reverse().filter(x=>filter==='all'||x.r.date.startsWith(filter)).forEach(({r,i})=>{const p=periodAt(i),tr=document.createElement('tr');tr.innerHTML=`<td>${dateFR(r.date)}</td><td>${r.elec}</td><td>${r.gas}</td><td>${r.water??'—'}</td><td>${p?money(p.cost):'—'}</td><td class="notesCell">${escapeHtml(r.note||'')}</td><td><div class="actions" style="margin:0;flex-wrap:nowrap"><button class="small secondary" data-edit="${i}">Modifier</button><button class="small danger" data-del="${i}">Suppr.</button></div></td>`;$('tbody').appendChild(tr)});document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editRow(+b.dataset.edit));document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Supprimer ce relevé ?')){data.splice(+b.dataset.del,1);persist()}});
+  $('priceBody').innerHTML='';[...data].reverse().forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${dateFR(r.date)}</td><td>${price(num(r.elecPrice))}</td><td>${price(num(r.gasPrice))}</td><td>${price(num(r.waterPrice))}</td>`;$('priceBody').appendChild(tr)})}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+
+function chartVals(y,key){return monthBuckets(y).map(m=>({label:monthLabel(m.month+'-01'),v:m[key]}))}
+function drawLineChart(canvasId,vals,emptyText,valueSuffix,allowNegative=false,second=null){const c=$(canvasId),ctx=c.getContext('2d'),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);ctx.font='12px -apple-system';ctx.fillStyle='#666';const all=[...vals,...(second||[])].map(x=>x.v).filter(Number.isFinite);if(!all.length){ctx.fillText(emptyText,18,28);return}const min=allowNegative?Math.min(...all,0):0,max=Math.max(...all,0),range=Math.max(max-min,1),padL=48,padR=18,padT=20,padB=36,w=W-padL-padR,h=H-padT-padB,y=v=>padT+((max-v)/range)*h;ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,H-padB);ctx.lineTo(W-padR,H-padB);ctx.stroke();const base=y(0);ctx.beginPath();ctx.moveTo(padL,base);ctx.lineTo(W-padR,base);ctx.stroke();ctx.fillStyle='#666';ctx.fillText(max.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,padT+4);if(min<0)ctx.fillText(min.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,H-padB);
+  const labels=Array.from(new Set([...vals.map(x=>x.label),...(second||[]).map(x=>x.label)]));const xForLabel=lab=>padL+(labels.length===1?w/2:labels.indexOf(lab)*w/(labels.length-1));function series(arr,color,dash){ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash(dash||[]);ctx.beginPath();arr.forEach((x,i)=>{const px=xForLabel(x.label),py=y(x.v);if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py)});ctx.stroke();ctx.setLineDash([]);arr.forEach(x=>{const px=xForLabel(x.label),py=y(x.v);ctx.fillStyle=color;ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);ctx.fill()})}series(vals,'#111',[]);if(second)series(second,'#888',[5,4]);ctx.fillStyle='#666';labels.forEach((lab,i)=>{const px=xForLabel(lab);ctx.save();ctx.translate(px,H-10);ctx.rotate(-0.25);ctx.fillText(lab,-12,0);ctx.restore()})}
+function renderCharts(){const y=$('chartYear').value||years()[0];drawLineChart('chartElec',chartVals(y,'de'),'Pas assez de données électriques.','kWh',true);drawLineChart('chartGas',chartVals(y,'dg'),'Pas assez de données gaz.','m³');drawLineChart('chartWater',chartVals(y,'dw'),'Pas assez de données eau.','m³');drawLineChart('chartCost',chartVals(y,'cost'),'Pas assez de données de prix.','€');const prev=String(Number(y)-1);drawLineChart('chartCompare',chartVals(y,'cost'),'Pas assez de données à comparer.','€',false,chartVals(prev,'cost'))}
+
+function exportCSV(){let csv='date;electricite_index_kWh;gaz_index_m3;eau_conso_mois_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3;note\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''};"${String(r.note||'').replace(/"/g,'""')}"`).join('\n');downloadBlob(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),'mes_compteurs.csv')}
+function parseCSVLine(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}else if(ch===';'&&!q){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out}
+function importCSV(file){const rd=new FileReader();rd.onload=()=>{const lines=String(rd.result).replace(/^\ufeff/,'').trim().split(/\r?\n/);if(lines.length<2){alert('Fichier vide.');return}const next=[];for(const line of lines.slice(1)){const c=parseCSVLine(line);let date,elec,gas,water,elecPrice,gasPrice,waterPrice,note='';if(c.length>=7){[date,elec,gas,water,elecPrice,gasPrice,waterPrice,note='']=c}else{[date,elec,gas,elecPrice,gasPrice]=c;water='';waterPrice=''}if(date&&num(elec)!==null&&num(gas)!==null)next.push({date:date.slice(0,10),elec:num(elec),gas:num(gas),water:num(water),elecPrice:num(elecPrice),gasPrice:num(gasPrice),waterPrice:num(waterPrice),note:note||''})}if(!next.length){alert('Aucune donnée valide trouvée.');return}if(!confirm(`${next.length} relevé(s) trouvé(s). Remplacer les données actuelles ?`))return;data=next;normalize();persist()};rd.readAsText(file)}
+function backupJSON(){const payload={app:'Mes Compteurs',version:6,exportedAt:new Date().toISOString(),settings,data};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`mes_compteurs_sauvegarde_${new Date().toISOString().slice(0,10)}.json`)}
+function restoreJSON(file){const rd=new FileReader();rd.onload=()=>{try{const obj=JSON.parse(rd.result);const restored=Array.isArray(obj)?obj:obj.data;if(!Array.isArray(restored))throw new Error('format');if(!confirm(`Restaurer ${restored.length} relevé(s) et remplacer les données actuelles ?`))return;data=restored;if(obj.settings)settings={...settings,...obj.settings};normalize();persist()}catch(e){alert('Sauvegarde JSON invalide.')}};rd.readAsText(file)}
+function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+
+function renderSettings(){$('annualBudget').value=settings.annualBudget??'';$('dataInfo').textContent=`${data.length} relevé(s) enregistrés localement sur cet appareil.`}
+function renderEntryDefaults(){if(data.length&&editIndex===null){const last=data[data.length-1];if($('elecPrice').value==='')$('elecPrice').value=last.elecPrice??'';if($('gasPrice').value==='')$('gasPrice').value=last.gasPrice??'';if($('waterPrice').value==='')$('waterPrice').value=last.waterPrice??''}}
+function renderAll(){fillYearSelects();renderDashboard();renderHistory();renderCharts();renderSettings();renderEntryDefaults()}
+function switchView(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${v}`));document.querySelectorAll('.tabBtn').forEach(x=>x.classList.toggle('active',x.dataset.view===v));if(v!=='entry'&&editIndex===null)cancelEditMode()}
+
+document.querySelectorAll('.tabBtn').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$('saveBtn').onclick=addOrEdit;$('cancelEdit').onclick=()=>{cancelEditMode();switchView('history')};$('dashYear').onchange=renderDashboard;$('chartYear').onchange=renderCharts;$('historyYear').onchange=renderHistory;$('saveBudget').onclick=()=>{settings.annualBudget=num($('annualBudget').value);persist();alert('Budget enregistré.')};$('exportBtn').onclick=exportCSV;$('importFile').onchange=e=>e.target.files[0]&&importCSV(e.target.files[0]);$('backupBtn').onclick=backupJSON;$('restoreFile').onchange=e=>e.target.files[0]&&restoreJSON(e.target.files[0]);$('clearBtn').onclick=()=>{if(confirm('Effacer définitivement tous les relevés de cet appareil ?')){data=[];cancelEditMode();persist()}};
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');renderAll();
 </script>
-</body></html>
+</body>
+</html>
