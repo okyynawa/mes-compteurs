@@ -30,7 +30,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>Mes Compteurs</h1><div class="muted">Électricité, gaz, eau & budget — données conservées sur cet appareil</div></div>
+  <div class="top"><h1>Mes Compteurs</h1><div class="muted">Électricité, gaz, eau, solaire & budget — données conservées sur cet appareil</div></div>
 
   <section id="view-dashboard" class="view active">
     <div class="card">
@@ -57,7 +57,9 @@
       <div class="stat"><div class="label">Électricité nette</div><div id="yElec" class="big">—</div></div>
       <div class="stat"><div class="label">Gaz</div><div id="yGas" class="big">—</div></div>
       <div class="stat"><div class="label">Eau</div><div id="yWater" class="big">—</div></div>
+      <div class="stat"><div class="label">Production solaire</div><div id="ySolar" class="big">—</div></div>
       <div class="stat"><div class="label">Moyenne mensuelle coût</div><div id="yAvgCost" class="big">—</div></div>
+      <div class="stat"><div class="label">Moyenne mensuelle solaire</div><div id="yAvgSolar" class="big">—</div></div>
     </div></div>
 
     <div class="card"><h2>Repères</h2><div id="records" class="miniList"></div></div>
@@ -89,6 +91,7 @@
   <section id="view-charts" class="view">
     <div class="card"><div class="toolbar"><h2 style="margin:0;flex:1">Graphiques</h2><select id="chartYear"></select></div></div>
     <div class="card"><h2>Électricité nette</h2><canvas id="chartElec" width="820" height="230"></canvas><div class="muted">Positif = prélèvement net. Négatif = production/injection nette supérieure.</div></div>
+    <div class="card"><h2>Production photovoltaïque SMA</h2><canvas id="chartSolar" width="820" height="230"></canvas><div class="muted">Total mensuel de tous les onduleurs/imports SMA.</div></div>
     <div class="card"><h2>Gaz</h2><canvas id="chartGas" width="820" height="230"></canvas></div>
     <div class="card"><h2>Eau</h2><canvas id="chartWater" width="820" height="230"></canvas></div>
     <div class="card"><h2>Coût mensuel estimé</h2><canvas id="chartCost" width="820" height="230"></canvas></div>
@@ -109,6 +112,10 @@
       <button id="backupBtn">Sauvegarde JSON</button>
       <label for="restoreFile" class="buttonLabel secondary">Restaurer JSON</label><input id="restoreFile" type="file" accept=".json,application/json" style="display:none" />
     </div></div>
+    <div class="card"><h2>SMA / photovoltaïque</h2><div class="muted">Importe un ou plusieurs exports CSV « Comparaison annuelle — Énergie photovoltaïque » de Sunny Portal. Les productions des différents onduleurs sont additionnées automatiquement tout en conservant leur détail.</div><div class="actions">
+      <label for="smaFiles" class="buttonLabel">Importer CSV SMA</label><input id="smaFiles" type="file" accept=".csv,text/csv" multiple style="display:none" />
+      <button class="secondary" id="clearSmaBtn">Effacer données SMA</button>
+    </div><div id="smaInfo" class="muted" style="margin-top:10px"></div></div>
     <div class="card"><h2>CSV / Excel</h2><div class="muted">Le CSV est pratique pour Excel et pour préparer l’import de l’ancien historique.</div><div class="actions">
       <button class="secondary" id="exportBtn">Exporter CSV</button>
       <label for="importFile" class="buttonLabel secondary">Importer CSV</label><input id="importFile" type="file" accept=".csv,text/csv" style="display:none" />
@@ -126,24 +133,29 @@
 </div></nav>
 
 <script>
-const KEY='mescompteurs_v1', SETTINGS_KEY='mescompteurs_settings_v6';
+const KEY='mescompteurs_v1', SETTINGS_KEY='mescompteurs_settings_v6', SOLAR_KEY='mescompteurs_sma_v7';
 const $=id=>document.getElementById(id);
 let data=[]; try{data=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){data=[]}
 let settings={annualBudget:null}; try{settings={...settings,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}}catch(e){}
+let solarData=[]; try{solarData=JSON.parse(localStorage.getItem(SOLAR_KEY)||'[]')}catch(e){solarData=[]}
 let editIndex=null;
 $('date').value=new Date().toISOString().slice(0,10);
 
 function num(v){if(typeof v==='string')v=v.trim().replace(',','.');const n=parseFloat(v);return Number.isFinite(n)?n:null}
 function normalize(){data=data.filter(r=>r&&r.date).map(r=>({date:String(r.date).slice(0,10),elec:num(r.elec),gas:num(r.gas),water:num(r.water),elecPrice:num(r.elecPrice),gasPrice:num(r.gasPrice),waterPrice:num(r.waterPrice),note:r.note||''})).filter(r=>r.elec!==null&&r.gas!==null).sort((a,b)=>a.date.localeCompare(b.date));}
 normalize();
-function persist(){localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));renderAll()}
+function normalizeSolar(){solarData=solarData.filter(r=>r&&/^\d{4}-\d{2}$/.test(String(r.month||''))&&num(r.kWh)!==null).map(r=>({installationId:String(r.installationId||''),name:String(r.name||'Installation SMA'),month:String(r.month),kWh:num(r.kWh)}));const map=new Map();solarData.forEach(r=>map.set(`${r.installationId}|${r.month}`,r));solarData=[...map.values()].sort((a,b)=>a.month.localeCompare(b.month)||a.name.localeCompare(b.name));}
+normalizeSolar();
+function persist(){localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));localStorage.setItem(SOLAR_KEY,JSON.stringify(solarData));renderAll()}
 function fmt(n,unit,max=2){return Number.isFinite(n)?n.toLocaleString('fr-BE',{maximumFractionDigits:max})+' '+unit:'—'}
 function money(n){return Number.isFinite(n)?n.toLocaleString('fr-BE',{style:'currency',currency:'EUR',maximumFractionDigits:2}):'—'}
 function price(n,unit='€'){return Number.isFinite(n)?n.toLocaleString('fr-BE',{minimumFractionDigits:2,maximumFractionDigits:4})+' '+unit:'—'}
 function dateFR(d){return new Date(d+'T00:00').toLocaleDateString('fr-BE')}
 function monthLabel(d){return new Date(d+'T00:00').toLocaleDateString('fr-BE',{month:'short'})}
 function daysBetween(a,b){return Math.max(1,(new Date(b+'T00:00')-new Date(a+'T00:00'))/86400000)}
-function years(){const ys=[...new Set(data.map(r=>r.date.slice(0,4)))].sort((a,b)=>b-a);if(!ys.includes(String(new Date().getFullYear())))ys.unshift(String(new Date().getFullYear()));return ys}
+function years(){const ys=[...new Set([...data.map(r=>r.date.slice(0,4)),...solarData.map(r=>r.month.slice(0,4))])].sort((a,b)=>b-a);if(!ys.includes(String(new Date().getFullYear())))ys.unshift(String(new Date().getFullYear()));return ys}
+function solarMonths(y){const map={};solarData.filter(r=>r.month.startsWith(String(y))).forEach(r=>{map[r.month]=(map[r.month]||0)+r.kWh});return Object.keys(map).sort().map(month=>({month,kWh:map[month]}))}
+function solarTotal(y){return solarMonths(y).reduce((s,r)=>s+r.kWh,0)}
 function periodAt(i){if(i<=0||i>=data.length)return null;const prev=data[i-1],cur=data[i];const de=num(cur.elec)-num(prev.elec),dg=num(cur.gas)-num(prev.gas),dw=num(cur.water);const ep=num(cur.elecPrice),gp=num(cur.gasPrice),wp=num(cur.waterPrice);const ce=ep!==null?de*ep:0,cg=gp!==null?dg*gp:0,cw=(dw!==null&&wp!==null)?dw*wp:0;return {date:cur.date,year:cur.date.slice(0,4),month:cur.date.slice(0,7),days:daysBetween(prev.date,cur.date),de,dg,dw,ce,cg,cw,cost:ce+cg+cw,note:cur.note||''}}
 function periods(){const out=[];for(let i=1;i<data.length;i++){const p=periodAt(i);if(p)out.push(p)}return out}
 function yearPeriods(y){return periods().filter(p=>p.year===String(y))}
@@ -154,10 +166,10 @@ function deltaText(el,cur,prev,invertGood=false){const p=pctChange(cur,prev);el.
 
 function fillYearSelects(){const ys=years();['dashYear','chartYear'].forEach(id=>{const sel=$(id),old=sel.value;sel.innerHTML=ys.map(y=>`<option value="${y}">${y}</option>`).join('');if(ys.includes(old))sel.value=old});const hs=$('historyYear'),old=hs.value;hs.innerHTML='<option value="all">Toutes</option>'+ys.map(y=>`<option value="${y}">${y}</option>`).join('');hs.value=(old==='all'||ys.includes(old))?old:'all'}
 
-function renderDashboard(){const y=$('dashYear').value||years()[0],ps=yearPeriods(y),months=monthBuckets(y);const totalCost=sum(ps,'cost'),totalElec=sum(ps,'de'),totalGas=sum(ps,'dg'),totalWater=sum(ps,'dw');const monthsDone=months.length;const projection=monthsDone?totalCost/monthsDone*12:NaN;const budget=num(settings.annualBudget);
+function renderDashboard(){const y=$('dashYear').value||years()[0],ps=yearPeriods(y),months=monthBuckets(y),sm=solarMonths(y);const totalCost=sum(ps,'cost'),totalElec=sum(ps,'de'),totalGas=sum(ps,'dg'),totalWater=sum(ps,'dw'),totalSolar=solarTotal(y);const monthsDone=months.length;const projection=monthsDone?totalCost/monthsDone*12:NaN;const budget=num(settings.annualBudget);
   $('heroCost').textContent=money(totalCost);$('heroProjection').textContent=money(projection);$('heroBudget').textContent=budget!==null?money(budget):'Non défini';
   const bn=$('budgetNotice');bn.style.display='none';bn.className='notice';if(budget!==null&&Number.isFinite(projection)){bn.style.display='block';const diff=projection-budget;if(diff>0){bn.classList.add('badNotice');bn.textContent=`Projection supérieure au budget d’environ ${money(diff)}.`}else{bn.classList.add('goodNotice');bn.textContent=`Projection sous le budget d’environ ${money(Math.abs(diff))}.`}}
-  $('yElec').textContent=fmt(totalElec,'kWh');$('yGas').textContent=fmt(totalGas,'m³');$('yWater').textContent=fmt(totalWater,'m³');$('yAvgCost').textContent=monthsDone?money(totalCost/monthsDone):'—';
+  $('yElec').textContent=fmt(totalElec,'kWh');$('yGas').textContent=fmt(totalGas,'m³');$('yWater').textContent=fmt(totalWater,'m³');$('ySolar').textContent=sm.length?fmt(totalSolar,'kWh'):'—';$('yAvgCost').textContent=monthsDone?money(totalCost/monthsDone):'—';$('yAvgSolar').textContent=sm.length?fmt(totalSolar/sm.length,'kWh'):'—';
   const allP=periods(),last=allP[allP.length-1],prev=allP[allP.length-2];
   if(last){$('dElec').textContent=fmt(last.de,'kWh');$('dGas').textContent=fmt(last.dg,'m³');$('dWater').textContent=fmt(last.dw,'m³');$('dCost').textContent=money(last.cost);if(prev){deltaText($('dElecDelta'),last.de,prev.de,true);deltaText($('dGasDelta'),last.dg,prev.dg,true);deltaText($('dWaterDelta'),last.dw,prev.dw,true);deltaText($('dCostDelta'),last.cost,prev.cost,true)}}else{['dElec','dGas','dWater','dCost'].forEach(id=>$(id).textContent='—');['dElecDelta','dGasDelta','dWaterDelta','dCostDelta'].forEach(id=>$(id).textContent='')}
   const rec=$('records');if(!months.length){rec.innerHTML='<div class="muted">Pas encore assez de données pour cette année.</div>';return}const maxCost=[...months].sort((a,b)=>b.cost-a.cost)[0],maxGas=[...months].sort((a,b)=>b.dg-a.dg)[0],maxWater=[...months].sort((a,b)=>b.dw-a.dw)[0],bestElec=[...months].sort((a,b)=>a.de-b.de)[0];rec.innerHTML=`
@@ -180,21 +192,25 @@ function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':
 function chartVals(y,key){return monthBuckets(y).map(m=>({label:monthLabel(m.month+'-01'),v:m[key]}))}
 function drawLineChart(canvasId,vals,emptyText,valueSuffix,allowNegative=false,second=null){const c=$(canvasId),ctx=c.getContext('2d'),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);ctx.font='12px -apple-system';ctx.fillStyle='#666';const all=[...vals,...(second||[])].map(x=>x.v).filter(Number.isFinite);if(!all.length){ctx.fillText(emptyText,18,28);return}const min=allowNegative?Math.min(...all,0):0,max=Math.max(...all,0),range=Math.max(max-min,1),padL=48,padR=18,padT=20,padB=36,w=W-padL-padR,h=H-padT-padB,y=v=>padT+((max-v)/range)*h;ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,H-padB);ctx.lineTo(W-padR,H-padB);ctx.stroke();const base=y(0);ctx.beginPath();ctx.moveTo(padL,base);ctx.lineTo(W-padR,base);ctx.stroke();ctx.fillStyle='#666';ctx.fillText(max.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,padT+4);if(min<0)ctx.fillText(min.toLocaleString('fr-BE',{maximumFractionDigits:1})+' '+valueSuffix,2,H-padB);
   const labels=Array.from(new Set([...vals.map(x=>x.label),...(second||[]).map(x=>x.label)]));const xForLabel=lab=>padL+(labels.length===1?w/2:labels.indexOf(lab)*w/(labels.length-1));function series(arr,color,dash){ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash(dash||[]);ctx.beginPath();arr.forEach((x,i)=>{const px=xForLabel(x.label),py=y(x.v);if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py)});ctx.stroke();ctx.setLineDash([]);arr.forEach(x=>{const px=xForLabel(x.label),py=y(x.v);ctx.fillStyle=color;ctx.beginPath();ctx.arc(px,py,3,0,Math.PI*2);ctx.fill()})}series(vals,'#111',[]);if(second)series(second,'#888',[5,4]);ctx.fillStyle='#666';labels.forEach((lab,i)=>{const px=xForLabel(lab);ctx.save();ctx.translate(px,H-10);ctx.rotate(-0.25);ctx.fillText(lab,-12,0);ctx.restore()})}
-function renderCharts(){const y=$('chartYear').value||years()[0];drawLineChart('chartElec',chartVals(y,'de'),'Pas assez de données électriques.','kWh',true);drawLineChart('chartGas',chartVals(y,'dg'),'Pas assez de données gaz.','m³');drawLineChart('chartWater',chartVals(y,'dw'),'Pas assez de données eau.','m³');drawLineChart('chartCost',chartVals(y,'cost'),'Pas assez de données de prix.','€');const prev=String(Number(y)-1);drawLineChart('chartCompare',chartVals(y,'cost'),'Pas assez de données à comparer.','€',false,chartVals(prev,'cost'))}
+function renderCharts(){const y=$('chartYear').value||years()[0];drawLineChart('chartElec',chartVals(y,'de'),'Pas assez de données électriques.','kWh',true);drawLineChart('chartSolar',solarMonths(y).map(m=>({label:monthLabel(m.month+'-01'),v:m.kWh})),'Aucune donnée SMA pour cette année.','kWh');drawLineChart('chartGas',chartVals(y,'dg'),'Pas assez de données gaz.','m³');drawLineChart('chartWater',chartVals(y,'dw'),'Pas assez de données eau.','m³');drawLineChart('chartCost',chartVals(y,'cost'),'Pas assez de données de prix.','€');const prev=String(Number(y)-1);drawLineChart('chartCompare',chartVals(y,'cost'),'Pas assez de données à comparer.','€',false,chartVals(prev,'cost'))}
 
 function exportCSV(){let csv='date;electricite_index_kWh;gaz_index_m3;eau_conso_mois_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3;note\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''};"${String(r.note||'').replace(/"/g,'""')}"`).join('\n');downloadBlob(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),'mes_compteurs.csv')}
 function parseCSVLine(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}else if(ch===';'&&!q){out.push(cur);cur=''}else cur+=ch}out.push(cur);return out}
 function importCSV(file){const rd=new FileReader();rd.onload=()=>{const lines=String(rd.result).replace(/^\ufeff/,'').trim().split(/\r?\n/);if(lines.length<2){alert('Fichier vide.');return}const next=[];for(const line of lines.slice(1)){const c=parseCSVLine(line);let date,elec,gas,water,elecPrice,gasPrice,waterPrice,note='';if(c.length>=7){[date,elec,gas,water,elecPrice,gasPrice,waterPrice,note='']=c}else{[date,elec,gas,elecPrice,gasPrice]=c;water='';waterPrice=''}if(date&&num(elec)!==null&&num(gas)!==null)next.push({date:date.slice(0,10),elec:num(elec),gas:num(gas),water:num(water),elecPrice:num(elecPrice),gasPrice:num(gasPrice),waterPrice:num(waterPrice),note:note||''})}if(!next.length){alert('Aucune donnée valide trouvée.');return}if(!confirm(`${next.length} relevé(s) trouvé(s). Remplacer les données actuelles ?`))return;data=next;normalize();persist()};rd.readAsText(file)}
-function backupJSON(){const payload={app:'Mes Compteurs',version:6,exportedAt:new Date().toISOString(),settings,data};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`mes_compteurs_sauvegarde_${new Date().toISOString().slice(0,10)}.json`)}
-function restoreJSON(file){const rd=new FileReader();rd.onload=()=>{try{const obj=JSON.parse(rd.result);const restored=Array.isArray(obj)?obj:obj.data;if(!Array.isArray(restored))throw new Error('format');if(!confirm(`Restaurer ${restored.length} relevé(s) et remplacer les données actuelles ?`))return;data=restored;if(obj.settings)settings={...settings,...obj.settings};normalize();persist()}catch(e){alert('Sauvegarde JSON invalide.')}};rd.readAsText(file)}
+function monthFromSmaHeader(h){const t=String(h||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');const names=['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];const i=names.findIndex(n=>t.includes(n));return i>=0?String(i+1).padStart(2,'0'):null}
+function parseSmaText(text){const lines=String(text).replace(/^\ufeff/,'').split(/\r?\n/).filter(x=>x.trim()!=='');const rows=lines.map(parseCSVLine);let installationId='',name='Installation SMA';for(const r of rows){if((r[0]||'').trim()==='ID de l’installation')installationId=(r[1]||'').trim();if((r[0]||'').trim()==='Nom de l’installation')name=(r[1]||'').trim()||name}const hi=rows.findIndex(r=>(r[0]||'').trim()==='Période');if(hi<0)throw new Error('En-tête SMA introuvable');const header=rows[hi],months=header.map(monthFromSmaHeader);const out=[];for(const r of rows.slice(hi+1)){const year=(r[0]||'').trim();if(!/^\d{4}$/.test(year))continue;for(let i=1;i<r.length;i++){const mm=months[i];if(!mm)continue;const v=num(r[i]);if(v!==null)out.push({installationId:installationId||name,name,month:`${year}-${mm}`,kWh:v})}}return out}
+function readTextFile(file){return new Promise((resolve,reject)=>{const rd=new FileReader();rd.onload=()=>resolve(String(rd.result));rd.onerror=reject;rd.readAsText(file)})}
+async function importSmaFiles(files){const list=[...files];if(!list.length)return;let imported=[];try{for(const f of list)imported.push(...parseSmaText(await readTextFile(f)))}catch(e){alert('Impossible de lire un des fichiers SMA : '+e.message);return}if(!imported.length){alert('Aucune production mensuelle SMA trouvée.');return}const ids=[...new Map(imported.map(r=>[r.installationId||r.name,r.name])).values()];if(!confirm(`${imported.length} valeur(s) mensuelle(s) trouvée(s) pour ${ids.length} installation(s). Les mêmes mois déjà importés pour ces installations seront mis à jour. Continuer ?`))return;const keys=new Set(imported.map(r=>`${r.installationId}|${r.month}`));solarData=solarData.filter(r=>!keys.has(`${r.installationId}|${r.month}`)).concat(imported);normalizeSolar();persist();alert('Données SMA importées.')}
+function backupJSON(){const payload={app:'Mes Compteurs',version:7,exportedAt:new Date().toISOString(),settings,data,solarData};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),`mes_compteurs_sauvegarde_${new Date().toISOString().slice(0,10)}.json`)}
+function restoreJSON(file){const rd=new FileReader();rd.onload=()=>{try{const obj=JSON.parse(rd.result);const restored=Array.isArray(obj)?obj:obj.data;if(!Array.isArray(restored))throw new Error('format');if(!confirm(`Restaurer ${restored.length} relevé(s) et remplacer les données actuelles ?`))return;data=restored;if(obj.settings)settings={...settings,...obj.settings};if(Array.isArray(obj.solarData))solarData=obj.solarData;normalize();normalizeSolar();persist()}catch(e){alert('Sauvegarde JSON invalide.')}};rd.readAsText(file)}
 function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 
-function renderSettings(){$('annualBudget').value=settings.annualBudget??'';$('dataInfo').textContent=`${data.length} relevé(s) enregistrés localement sur cet appareil.`}
+function renderSettings(){$('annualBudget').value=settings.annualBudget??'';$('dataInfo').textContent=`${data.length} relevé(s) enregistrés localement sur cet appareil.`;const inst=[...new Map(solarData.map(r=>[r.installationId||r.name,r.name])).values()];const sm=solarData.map(r=>r.month).sort();$('smaInfo').textContent=solarData.length?`${inst.length} installation(s) SMA — ${solarData.length} valeur(s) mensuelle(s) — de ${sm[0]} à ${sm[sm.length-1]}.`:'Aucune donnée SMA importée.'}
 function renderEntryDefaults(){if(data.length&&editIndex===null){const last=data[data.length-1];if($('elecPrice').value==='')$('elecPrice').value=last.elecPrice??'';if($('gasPrice').value==='')$('gasPrice').value=last.gasPrice??'';if($('waterPrice').value==='')$('waterPrice').value=last.waterPrice??''}}
 function renderAll(){fillYearSelects();renderDashboard();renderHistory();renderCharts();renderSettings();renderEntryDefaults()}
 function switchView(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id===`view-${v}`));document.querySelectorAll('.tabBtn').forEach(x=>x.classList.toggle('active',x.dataset.view===v));if(v!=='entry'&&editIndex===null)cancelEditMode()}
 
-document.querySelectorAll('.tabBtn').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$('saveBtn').onclick=addOrEdit;$('cancelEdit').onclick=()=>{cancelEditMode();switchView('history')};$('dashYear').onchange=renderDashboard;$('chartYear').onchange=renderCharts;$('historyYear').onchange=renderHistory;$('saveBudget').onclick=()=>{settings.annualBudget=num($('annualBudget').value);persist();alert('Budget enregistré.')};$('exportBtn').onclick=exportCSV;$('importFile').onchange=e=>e.target.files[0]&&importCSV(e.target.files[0]);$('backupBtn').onclick=backupJSON;$('restoreFile').onchange=e=>e.target.files[0]&&restoreJSON(e.target.files[0]);$('clearBtn').onclick=()=>{if(confirm('Effacer définitivement tous les relevés de cet appareil ?')){data=[];cancelEditMode();persist()}};
+document.querySelectorAll('.tabBtn').forEach(b=>b.onclick=()=>switchView(b.dataset.view));$('saveBtn').onclick=addOrEdit;$('cancelEdit').onclick=()=>{cancelEditMode();switchView('history')};$('dashYear').onchange=renderDashboard;$('chartYear').onchange=renderCharts;$('historyYear').onchange=renderHistory;$('saveBudget').onclick=()=>{settings.annualBudget=num($('annualBudget').value);persist();alert('Budget enregistré.')};$('smaFiles').onchange=e=>{if(e.target.files?.length)importSmaFiles(e.target.files);e.target.value=''};$('clearSmaBtn').onclick=()=>{if(confirm('Effacer toutes les données photovoltaïques SMA importées ?')){solarData=[];persist()}};$('exportBtn').onclick=exportCSV;$('importFile').onchange=e=>e.target.files[0]&&importCSV(e.target.files[0]);$('backupBtn').onclick=backupJSON;$('restoreFile').onchange=e=>e.target.files[0]&&restoreJSON(e.target.files[0]);$('clearBtn').onclick=()=>{if(confirm('Effacer définitivement tous les relevés et toutes les données SMA de cet appareil ?')){data=[];solarData=[];cancelEditMode();persist()}};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');renderAll();
 </script>
 </body>
