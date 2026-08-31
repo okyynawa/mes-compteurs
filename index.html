@@ -30,11 +30,11 @@
     <h2>Nouveau relevé</h2>
     <label>Date</label><input id="date" type="date" />
 
-    <div class="sectionTitle">Index des compteurs</div>
+    <div class="sectionTitle">Relevés</div>
     <div class="row">
       <div><label>Électricité (kWh)</label><input id="elec" type="number" inputmode="decimal" step="0.001" /></div>
       <div><label>Gaz (m³)</label><input id="gas" type="number" inputmode="decimal" step="0.001" /></div>
-      <div><label>Eau (m³)</label><input id="water" type="number" inputmode="decimal" step="0.001" /></div>
+      <div><label>Consommation d’eau du mois (m³)</label><input id="water" type="number" inputmode="decimal" step="0.001" placeholder="ex. 8,5" /></div>
     </div>
 
     <div class="sectionTitle">Prix au jour du relevé</div>
@@ -43,7 +43,7 @@
       <div><label>Gaz (€/m³)</label><input id="gasPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 0,95" /></div>
       <div><label>Eau (€/m³)</label><input id="waterPrice" type="number" inputmode="decimal" step="0.0001" placeholder="ex. 5,50" /></div>
     </div>
-    <div class="muted" style="margin-top:8px">Ces prix servent à estimer le coût de la consommation depuis le relevé précédent.</div>
+    <div class="muted" style="margin-top:8px">Pour l’électricité et le gaz, la consommation est calculée depuis l’index précédent. Pour l’eau, saisis directement la consommation du mois. L’index électrique peut diminuer avec les panneaux solaires.</div>
     <div class="actions"><button id="saveBtn">Enregistrer</button></div>
   </div>
 
@@ -52,10 +52,10 @@
     <div class="stats">
       <div class="stat"><div class="muted">Dernière conso électricité</div><div id="sElec" class="big">—</div></div>
       <div class="stat"><div class="muted">Dernière conso gaz</div><div id="sGas" class="big">—</div></div>
-      <div class="stat"><div class="muted">Dernière conso eau</div><div id="sWater" class="big">—</div></div>
+      <div class="stat"><div class="muted">Eau du dernier mois</div><div id="sWater" class="big">—</div></div>
       <div class="stat"><div class="muted">Moyenne élec./jour</div><div id="sElecDay" class="big">—</div></div>
       <div class="stat"><div class="muted">Moyenne gaz/jour</div><div id="sGasDay" class="big">—</div></div>
-      <div class="stat"><div class="muted">Moyenne eau/jour</div><div id="sWaterDay" class="big">—</div></div>
+      <div class="stat"><div class="muted">Moyenne eau/mois</div><div id="sWaterDay" class="big">—</div></div>
       <div class="stat"><div class="muted">Coût électricité estimé</div><div id="sElecCost" class="big">—</div></div>
       <div class="stat"><div class="muted">Coût gaz estimé</div><div id="sGasCost" class="big">—</div></div>
       <div class="stat"><div class="muted">Coût eau estimé</div><div id="sWaterCost" class="big">—</div></div>
@@ -67,12 +67,12 @@
   <div class="card">
     <h2>Évolution</h2>
     <canvas id="chart" width="700" height="220"></canvas>
-    <div class="muted">Consommation électrique entre chaque relevé</div>
+    <div class="muted">Variation nette de l’index électrique entre chaque relevé. Une valeur négative est possible si la production solaire dépasse le prélèvement.</div>
   </div>
 
   <div class="card">
     <h2>Historique</h2>
-    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau</th><th>Élec. €/kWh</th><th>Gaz €/m³</th><th>Eau €/m³</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <div style="overflow:auto"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau (mois)</th><th>Élec. €/kWh</th><th>Gaz €/m³</th><th>Eau €/m³</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
     <div class="actions">
       <button class="secondary" id="exportBtn">Exporter CSV</button>
       <label for="importFile" class="secondary" style="padding:12px 14px;border-radius:12px;font-weight:700;cursor:pointer">Importer CSV</label>
@@ -123,10 +123,12 @@ function render(){
   if(data.length>=2){
     const a=data[data.length-2],b=data[data.length-1];
     const days=Math.max(1,(new Date(b.date+'T00:00')-new Date(a.date+'T00:00'))/86400000);
-    const de=b.elec-a.elec,dg=b.gas-a.gas,dw=(num(b.water)!==null&&num(a.water)!==null)?b.water-a.water:NaN,ep=num(b.elecPrice),gp=num(b.gasPrice),wp=num(b.waterPrice);
+    const de=b.elec-a.elec,dg=b.gas-a.gas,dw=num(b.water),ep=num(b.elecPrice),gp=num(b.gasPrice),wp=num(b.waterPrice);
     const ce=Number.isFinite(de)&&ep!==null?de*ep:NaN,cg=Number.isFinite(dg)&&gp!==null?dg*gp:NaN,cw=Number.isFinite(dw)&&wp!==null?dw*wp:NaN;
     $('sElec').textContent=fmt(de,'kWh');$('sGas').textContent=fmt(dg,'m³');$('sWater').textContent=fmt(dw,'m³');
-    $('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');$('sWaterDay').textContent=fmt(dw/days,'m³/j',3);
+    $('sElecDay').textContent=fmt(de/days,'kWh/j');$('sGasDay').textContent=fmt(dg/days,'m³/j');
+    const waterVals=data.map(r=>num(r.water)).filter(v=>v!==null);
+    $('sWaterDay').textContent=waterVals.length?fmt(waterVals.reduce((x,y)=>x+y,0)/waterVals.length,'m³/mois'):'—';
     $('sElecCost').textContent=money(ce);$('sGasCost').textContent=money(cg);$('sWaterCost').textContent=money(cw);$('sTotalCost').textContent=money(ce+cg+(Number.isFinite(cw)?cw:0));$('sPeriod').textContent=Math.round(days)+' j';
   }
   if(data.length){
@@ -141,14 +143,18 @@ function render(){
 function drawChart(){
   const c=$('chart'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.font='12px -apple-system';ctx.fillStyle='#666';
   if(data.length<2){ctx.fillText('Ajoute au moins deux relevés pour afficher un graphique.',20,30);return;}
-  const vals=[];for(let i=1;i<data.length;i++)vals.push({label:data[i].date.slice(5),v:Math.max(0,data[i].elec-data[i-1].elec)});
-  const max=Math.max(...vals.map(x=>x.v),1),pad=30,w=c.width-pad*2,h=c.height-pad*2;
-  ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.lineTo(c.width-pad,c.height-pad);ctx.stroke();
-  ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();vals.forEach((x,i)=>{const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=c.height-pad-(x.v/max)*h;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8)});ctx.stroke();
+  const vals=[];for(let i=1;i<data.length;i++)vals.push({label:data[i].date.slice(5),v:data[i].elec-data[i-1].elec});
+  const min=Math.min(...vals.map(x=>x.v),0),max=Math.max(...vals.map(x=>x.v),0);
+  const range=Math.max(max-min,1),pad=30,w=c.width-pad*2,h=c.height-pad*2;
+  const y=v=>pad+((max-v)/range)*h;
+  ctx.strokeStyle='#ddd';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,c.height-pad);ctx.stroke();
+  const zeroY=y(0);ctx.beginPath();ctx.moveTo(pad,zeroY);ctx.lineTo(c.width-pad,zeroY);ctx.stroke();
+  ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.beginPath();
+  vals.forEach((x,i)=>{const px=pad+(vals.length===1?w/2:i*w/(vals.length-1)),py=y(x.v);if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);ctx.fillStyle='#111';ctx.fillRect(px-2,py-2,4,4);ctx.fillStyle='#666';ctx.fillText(x.label,px-14,c.height-8)});ctx.stroke();
 }
-
 function exportCSV(){
-  let csv='date;electricite_kWh;gaz_m3;eau_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''}`).join('\n');
+  let csv='date;electricite_index_kWh;gaz_index_m3;eau_conso_mois_m3;prix_electricite_eur_kWh;prix_gaz_eur_m3;prix_eau_eur_m3\n'+data.map(r=>`${r.date};${r.elec};${r.gas};${r.water??''};${r.elecPrice??''};${r.gasPrice??''};${r.waterPrice??''}`).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mes_compteurs.csv';a.click();URL.revokeObjectURL(url)
 }
 function importCSV(file){
