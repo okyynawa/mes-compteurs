@@ -25,7 +25,19 @@
     .view{display:none}.view.active{display:block}.editBanner{display:none;background:#eaf2ff;color:#174a8b;padding:10px 12px;border-radius:12px;margin-bottom:10px;font-size:13px}.editBanner.show{display:block}
     .miniList{display:grid;gap:7px}.miniItem{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:8px 0;font-size:13px}.miniItem:last-child{border-bottom:0}.right{text-align:right}
     @media(max-width:650px){.row3,.heroGrid{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}.big{font-size:18px}.tabsInner{gap:2px}.tabBtn{font-size:10px}.card{padding:14px}}
-    @media(max-width:390px){.row,.stats{grid-template-columns:1fr}.tabBtn span{font-size:16px}}
+    @media(max-width:650px){
+      #view-history .historyWrap{overflow:visible}
+      #view-history .historyTable thead{display:none}
+      #view-history .historyTable,#view-history .historyTable tbody,#view-history .historyTable tr,#view-history .historyTable td{display:block;width:100%}
+      #view-history .historyTable tr{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:10px 0}
+      #view-history .historyTable td{border:0;padding:5px 0;white-space:normal;display:grid;grid-template-columns:116px minmax(0,1fr);gap:8px;align-items:start}
+      #view-history .historyTable td::before{content:attr(data-label);font-size:11px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.02em}
+      #view-history .historyTable td.historyActions{display:block;padding-top:9px;margin-top:5px;border-top:1px solid var(--line)}
+      #view-history .historyTable td.historyActions::before{display:none}
+      #view-history .historyTable .actions{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+      #view-history .historyTable .actions button{width:100%;padding:11px 10px;font-size:14px}
+    }
+    @media(max-width:390px){.row,.stats{grid-template-columns:1fr}.tabBtn span{font-size:16px}#view-history .historyTable td{grid-template-columns:98px minmax(0,1fr)}}
   </style>
 </head>
 <body>
@@ -113,7 +125,7 @@
   <section id="view-history" class="view">
     <div class="card">
       <div class="toolbar"><h2 style="margin:0;flex:1">Historique</h2><select id="historyYear"><option value="all">Toutes</option></select></div>
-      <div class="tableWrap"><table><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau</th><th>Coût</th><th>Note</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div>
+      <div class="tableWrap historyWrap"><table class="historyTable"><thead><tr><th>Date</th><th>Élec.</th><th>Gaz</th><th>Eau</th><th>Coût</th><th>Note</th><th>Actions</th></tr></thead><tbody id="tbody"></tbody></table></div>
     </div>
     <div class="card"><h2>Historique des prix</h2><div class="tableWrap"><table><thead><tr><th>Date</th><th>Élec. €/kWh</th><th>Gaz €/m³</th><th>Eau €/m³</th></tr></thead><tbody id="priceBody"></tbody></table></div></div>
   </section>
@@ -198,7 +210,7 @@ function addOrEdit(){const d=$('date').value,e=num($('elec').value),g=num($('gas
 function editRow(i){const r=data[i];if(!r)return;editIndex=i;$('date').value=r.date;$('elec').value=r.elec;$('gas').value=r.gas;$('water').value=r.water??'';$('elecPrice').value=r.elecPrice??'';$('gasPrice').value=r.gasPrice??'';$('waterPrice').value=r.waterPrice??'';$('note').value=r.note||'';$('editBanner').classList.add('show');$('saveBtn').textContent='Enregistrer les modifications';switchView('entry');window.scrollTo({top:0,behavior:'smooth'})}
 function cancelEditMode(){editIndex=null;$('editBanner').classList.remove('show');$('saveBtn').textContent='Enregistrer'}
 
-function renderHistory(){const filter=$('historyYear').value||'all';$('tbody').innerHTML='';[...data].map((r,i)=>({r,i})).reverse().filter(x=>filter==='all'||x.r.date.startsWith(filter)).forEach(({r,i})=>{const p=periodAt(i),tr=document.createElement('tr');tr.innerHTML=`<td>${dateFR(r.date)}</td><td>${r.elec}</td><td>${r.gas}</td><td>${r.water??'—'}</td><td>${p?money(p.cost):'—'}</td><td class="notesCell">${escapeHtml(r.note||'')}</td><td><div class="actions" style="margin:0;flex-wrap:nowrap"><button class="small secondary" data-edit="${i}">Modifier</button><button class="small danger" data-del="${i}">Suppr.</button></div></td>`;$('tbody').appendChild(tr)});document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editRow(+b.dataset.edit));document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Supprimer ce relevé ?')){data.splice(+b.dataset.del,1);persist()}});
+function renderHistory(){const filter=$('historyYear').value||'all';$('tbody').innerHTML='';[...data].map((r,i)=>({r,i})).reverse().filter(x=>filter==='all'||x.r.date.startsWith(filter)).forEach(({r,i})=>{const p=periodAt(i),tr=document.createElement('tr');tr.innerHTML=`<td data-label="Date">${dateFR(r.date)}</td><td data-label="Électricité">${r.elec}</td><td data-label="Gaz">${r.gas}</td><td data-label="Eau">${r.water??'—'}</td><td data-label="Coût">${p?money(p.cost):'—'}</td><td data-label="Note" class="notesCell">${escapeHtml(r.note||'—')}</td><td class="historyActions"><div class="actions" style="margin:0"><button class="small secondary" data-edit="${i}">✏️ Modifier</button><button class="small danger" data-del="${i}">🗑️ Supprimer</button></div></td>`;$('tbody').appendChild(tr)});document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editRow(+b.dataset.edit));document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Supprimer ce relevé ?')){data.splice(+b.dataset.del,1);persist()}});}
   $('priceBody').innerHTML='';[...data].reverse().forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${dateFR(r.date)}</td><td>${price(num(r.elecPrice))}</td><td>${price(num(r.gasPrice))}</td><td>${price(num(r.waterPrice))}</td>`;$('priceBody').appendChild(tr)})}
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 
